@@ -5,7 +5,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebas
 import { getDatabase, ref, get, set, push, update, remove, child, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBOtxlG3Wvf2ZUF_KbZ7wlCiDHqJ5RMrvY",
+  // apiKeyRemoved: "----------------",
   authDomain: "handleliste-3bdaa.firebaseapp.com",
   databaseURL: "https://handleliste-3bdaa-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "handleliste-3bdaa",
