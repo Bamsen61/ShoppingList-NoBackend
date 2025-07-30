@@ -2,6 +2,14 @@
 
 A secure shopping list web application using Firebase Realtime Database, designed for GitHub Pages deployment.
 
+## Test in local GIT clone
+
+In local Powershell:
+
+    - cd "d:\GIT\ShoppingList-NoBackend\docs"
+    - python -m http.server 8000
+
+
 ## 🔒 Security Features
 
 - Domain-restricted Firebase API keys
