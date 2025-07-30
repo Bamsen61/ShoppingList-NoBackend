@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Auth Diagnostic</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .status { padding: 1em; margin: 1em 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        pre { background: #f8f9fa; padding: 1em; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Firebase Authentication Diagnostic</h1>
+    <div id="results"></div>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+        const results = document.getElementById('results');
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+            console.log(message.replace(/<[^>]*>/g, ''));
+        }
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBOtxlG3Wvf2ZUF_KbZ7wlCiDHqJ5RMrvY",
+            authDomain: "handleliste-3bdaa.firebaseapp.com",
+            databaseURL: "https://handleliste-3bdaa-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "handleliste-3bdaa",
+            storageBucket: "handleliste-3bdaa.appspot.com",
+            messagingSenderId: "193993736216",
+            appId: "1:193993736216:web:ac36bb1f7010918c5f836d"
+        };
+
+        try {
+            addResult("🚀 <strong>Step 1:</strong> Initializing Firebase...", 'info');
+            const app = initializeApp(firebaseConfig);
+            const db = getDatabase(app);
+            const auth = getAuth(app);
+            addResult("✅ <strong>Step 1 Complete:</strong> Firebase initialized successfully", 'success');
+
+            addResult("🔐 <strong>Step 2:</strong> Checking current authentication state...", 'info');
+            
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    addResult(`✅ <strong>Step 2 Complete:</strong> User authenticated<br>
+                              UID: ${user.uid}<br>
+                              Anonymous: ${user.isAnonymous}<br>
+                              Provider: ${user.providerId}`, 'success');
+                    
+                    // Test database access
+                    addResult("📊 <strong>Step 3:</strong> Testing database access...", 'info');
+                    testDatabaseAccess(db);
+                } else {
+                    addResult("⚠️ <strong>Step 2:</strong> No authenticated user found, attempting anonymous sign-in...", 'warning');
+                    
+                    signInAnonymously(auth)
+                        .then(() => {
+                            addResult("✅ <strong>Anonymous Sign-in:</strong> Successful!", 'success');
+                        })
+                        .catch((error) => {
+                            addResult(`❌ <strong>Anonymous Sign-in Failed:</strong><br>
+                                      Code: ${error.code}<br>
+                                      Message: ${error.message}<br>
+                                      <strong>Likely cause:</strong> Anonymous authentication not enabled in Firebase Console`, 'error');
+                            
+                            addResult(`🔧 <strong>Fix:</strong> Go to Firebase Console → Authentication → Sign-in method → Enable Anonymous`, 'warning');
+                        });
+                }
+            });
+
+        } catch (error) {
+            addResult(`❌ <strong>Firebase Initialization Failed:</strong><br>
+                      Error: ${error.message}`, 'error');
+        }
+
+        function testDatabaseAccess(db) {
+            const testRef = ref(db, 'handleliste');
+            get(testRef)
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.val();
+                        const itemCount = Object.keys(data).length;
+                        addResult(`✅ <strong>Step 3 Complete:</strong> Database access successful<br>
+                                  Found ${itemCount} items in database`, 'success');
+                    } else {
+                        addResult("📭 <strong>Step 3 Complete:</strong> Database accessible but no data found", 'success');
+                    }
+                })
+                .catch((error) => {
+                    addResult(`❌ <strong>Step 3 Failed:</strong> Database access denied<br>
+                              Code: ${error.code}<br>
+                              Message: ${error.message}<br>
+                              <strong>Likely cause:</strong> Security rules require authentication`, 'error');
+                });
+        }
+    </script>
+</body>
+</html>

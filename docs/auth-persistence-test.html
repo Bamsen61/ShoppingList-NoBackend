@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Persistence Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .status { padding: 1em; margin: 1em 0; border-radius: 5px; border-left: 4px solid; }
+        .success { background: #d4edda; border-color: #28a745; }
+        .info { background: #d1ecf1; border-color: #17a2b8; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+        .primary { background: #007bff; color: white; }
+        .danger { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Authentication Persistence Test</h1>
+    
+    <div id="authStatus" class="status info">
+        🔄 Checking authentication status...
+    </div>
+    
+    <div>
+        <button class="primary" onclick="checkAuthState()">🔍 Check Auth State</button>
+        <button class="primary" onclick="window.open('index.html', '_blank')">🛒 Open Shopping List</button>
+        <button class="danger" onclick="testLogout()">🚪 Test Logout</button>
+    </div>
+    
+    <h3>📱 Mobile Persistence Information:</h3>
+    <ul>
+        <li><strong>browserLocalPersistence:</strong> Authentication state persists across browser sessions</li>
+        <li><strong>Stays logged in:</strong> User remains authenticated even after closing browser</li>
+        <li><strong>Manual logout only:</strong> Only logs out when user clicks logout button</li>
+        <li><strong>Survives:</strong> Browser restart, phone restart, app switching</li>
+        <li><strong>Device storage:</strong> Authentication token stored in browser's local storage</li>
+    </ul>
+    
+    <h3>🧪 Test Scenarios:</h3>
+    <ol>
+        <li>Log in to the shopping list</li>
+        <li>Close browser completely</li>
+        <li>Open browser again and visit the shopping list</li>
+        <li>Should automatically be logged in (no login screen)</li>
+    </ol>
+
+    <script type="module">
+        import { auth } from './js/firebase-init.js';
+        import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+        const statusDiv = document.getElementById('authStatus');
+
+        function updateStatus(message, type = 'info') {
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                updateStatus(`
+                    ✅ <strong>User Authenticated</strong><br>
+                    📧 Email: ${user.email}<br>
+                    🆔 UID: ${user.uid}<br>
+                    ⏰ Last Sign In: ${new Date(user.metadata.lastSignInTime).toLocaleString()}<br>
+                    🔒 <strong>Persistence: ACTIVE</strong> - Will stay logged in across sessions
+                `, 'success');
+            } else {
+                updateStatus(`
+                    ❌ <strong>No User Authenticated</strong><br>
+                    Please log in to test persistence.
+                `, 'info');
+            }
+        });
+
+        window.checkAuthState = () => {
+            if (auth.currentUser) {
+                const user = auth.currentUser;
+                alert(`✅ User: ${user.email}\\n🔒 Persistent: YES\\n⏰ Last login: ${new Date(user.metadata.lastSignInTime).toLocaleString()}`);
+            } else {
+                alert('❌ No authenticated user');
+            }
+        };
+
+        window.testLogout = () => {
+            if (confirm('This will log you out. Are you sure?')) {
+                signOut(auth).then(() => {
+                    alert('✅ Logged out successfully');
+                }).catch((error) => {
+                    alert('❌ Logout failed: ' + error.message);
+                });
+            }
+        };
+    </script>
+</body>
+</html>

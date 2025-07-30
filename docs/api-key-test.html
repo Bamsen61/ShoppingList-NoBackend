@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Key Restriction Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .status { padding: 1em; margin: 1em 0; border-radius: 5px; border-left: 4px solid; }
+        .success { background: #d4edda; border-color: #28a745; }
+        .warning { background: #fff3cd; border-color: #ffc107; }
+        .error { background: #f8d7da; border-color: #dc3545; }
+        .info { background: #d1ecf1; border-color: #17a2b8; }
+        code { background: #f8f9fa; padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🔐 API Key Restriction Test</h1>
+    
+    <div id="result" class="status info">
+        🔄 Testing API key restrictions...
+    </div>
+    
+    <div class="status info">
+        <h3>📋 How to Set Up Domain Restrictions:</h3>
+        <ol>
+            <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+            <li>Select project: <strong>handleliste-3bdaa</strong></li>
+            <li>Navigate to: <strong>APIs & Services</strong> → <strong>Credentials</strong></li>
+            <li>Find API key: <code>AIzaSyBOtxlG3Wvf2ZUF_KbZ7wlCiDHqJ5RMrvY</code></li>
+            <li>Click <strong>Edit</strong> (pencil icon)</li>
+            <li>Under <strong>Website restrictions</strong>, add these domains:</li>
+        </ol>
+        
+        <h4>🌐 Recommended Domain Restrictions:</h4>
+        <ul>
+            <li><code>localhost:8000/*</code> (for local development)</li>
+            <li><code>127.0.0.1:8000/*</code> (alternative localhost)</li>
+            <li><code>bamsen61.github.io/*</code> (for GitHub Pages deployment)</li>
+            <li><code>handleliste-3bdaa.firebaseapp.com/*</code> (Firebase hosting)</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBOtxlG3Wvf2ZUF_KbZ7wlCiDHqJ5RMrvY",
+            authDomain: "handleliste-3bdaa.firebaseapp.com",
+            databaseURL: "https://handleliste-3bdaa-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "handleliste-3bdaa",
+            storageBucket: "handleliste-3bdaa.appspot.com",
+            messagingSenderId: "193993736216",
+            appId: "1:193993736216:web:ac36bb1f7010918c5f836d"
+        };
+
+        const resultDiv = document.getElementById('result');
+        
+        try {
+            console.log('🔍 Testing Firebase initialization...');
+            const app = initializeApp(firebaseConfig);
+            const db = getDatabase(app);
+            
+            // Try to access a public endpoint to test API key
+            const testRef = ref(db, '.info/connected');
+            
+            console.log('📡 Testing database connection...');
+            
+            // This will succeed if API key works from this domain
+            get(testRef).then(() => {
+                resultDiv.className = 'status success';
+                resultDiv.innerHTML = `
+                    ✅ <strong>API Key Working</strong><br>
+                    🌐 Current domain: <code>${window.location.origin}</code><br>
+                    📝 This domain is allowed to use your API key<br>
+                    💡 You can still add domain restrictions for extra security
+                `;
+            }).catch((error) => {
+                if (error.code === 'auth/invalid-api-key' || error.code === 'auth/api-key-not-valid-for-this-project') {
+                    resultDiv.className = 'status error';
+                    resultDiv.innerHTML = `
+                        ❌ <strong>Domain Restriction Active</strong><br>
+                        🚫 Current domain: <code>${window.location.origin}</code><br>
+                        📝 This domain is NOT allowed to use your API key<br>
+                        🔧 Add <code>${window.location.origin}/*</code> to allowed domains in Google Cloud Console
+                    `;
+                } else {
+                    resultDiv.className = 'status warning';
+                    resultDiv.innerHTML = `
+                        ⚠️ <strong>Different Error</strong><br>
+                        📝 Error: ${error.code}<br>
+                        💭 This might be due to authentication rules, not domain restrictions
+                    `;
+                }
+            });
+            
+        } catch (error) {
+            resultDiv.className = 'status error';
+            resultDiv.innerHTML = `
+                ❌ <strong>Firebase Initialization Failed</strong><br>
+                📝 Error: ${error.message}<br>
+                🔧 Check your API key configuration
+            `;
+        }
+    </script>
+</body>
+</html>

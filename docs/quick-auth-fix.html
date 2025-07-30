@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Auth Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; line-height: 1.6; }
+        .step { padding: 1em; margin: 1em 0; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .pending { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+        .primary { background-color: #007bff; color: white; }
+        .success-btn { background-color: #28a745; color: white; }
+        .danger { background-color: #dc3545; color: white; }
+        #console { background: #1e1e1e; color: #fff; padding: 1em; border-radius: 5px; font-family: monospace; height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Quick Authentication Fix</h1>
+    
+    <div class="step pending" id="step1">
+        <h3>Step 1: Enable Anonymous Authentication in Firebase Console</h3>
+        <p>1. Go to <a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a></p>
+        <p>2. Select project: <strong>handleliste-3bdaa</strong></p>
+        <p>3. Navigate to <strong>Authentication</strong> → <strong>Sign-in method</strong></p>
+        <p>4. Find <strong>Anonymous</strong> and click <strong>Enable</strong></p>
+        <p>5. Click <strong>Save</strong></p>
+        <button class="primary" onclick="testAuth()">✅ I've enabled it - Test Now</button>
+    </div>
+
+    <div class="step" id="step2" style="display: none;">
+        <h3>Step 2: Authentication Test Results</h3>
+        <div id="authResult"></div>
+        <button class="success-btn" onclick="window.open('index.html', '_blank')">🚀 Open Shopping List</button>
+        <button class="primary" onclick="testAuth()">🔄 Test Again</button>
+    </div>
+
+    <div class="step">
+        <h3>Console Output</h3>
+        <div id="console"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBOtxlG3Wvf2ZUF_KbZ7wlCiDHqJ5RMrvY",
+            authDomain: "handleliste-3bdaa.firebaseapp.com",
+            databaseURL: "https://handleliste-3bdaa-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "handleliste-3bdaa",
+            storageBucket: "handleliste-3bdaa.appspot.com",
+            messagingSenderId: "193993736216",
+            appId: "1:193993736216:web:ac36bb1f7010918c5f836d"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        const consoleDiv = document.getElementById('console');
+        
+        function log(message) {
+            console.log(message);
+            consoleDiv.innerHTML += message + '<br>';
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        window.testAuth = async function() {
+            document.getElementById('step2').style.display = 'block';
+            const resultDiv = document.getElementById('authResult');
+            resultDiv.innerHTML = '<p>🔄 Testing authentication...</p>';
+            
+            try {
+                log('🔐 Starting authentication test...');
+                
+                // Clear any existing auth state
+                if (auth.currentUser) {
+                    log('👤 Found existing user: ' + auth.currentUser.uid);
+                } else {
+                    log('👤 No existing user, signing in anonymously...');
+                }
+                
+                const userCredential = await signInAnonymously(auth);
+                const user = userCredential.user;
+                
+                log('✅ Authentication successful!');
+                log('👤 User ID: ' + user.uid);
+                log('🔒 Anonymous: ' + user.isAnonymous);
+                
+                // Test database access
+                log('📊 Testing database access...');
+                const snapshot = await get(ref(db, 'handleliste'));
+                
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    const itemCount = Object.keys(data).length;
+                    log(`✅ Database access successful! Found ${itemCount} items.`);
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Authentication Working!</h4>
+                            <p>✅ Anonymous authentication successful</p>
+                            <p>✅ Database access working</p>
+                            <p>✅ Found ${itemCount} items in database</p>
+                            <p><strong>Your shopping list should now work!</strong></p>
+                        </div>
+                    `;
+                    
+                    document.getElementById('step1').className = 'step success';
+                } else {
+                    log('📭 Database accessible but empty');
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Authentication Working!</h4>
+                            <p>✅ Anonymous authentication successful</p>
+                            <p>✅ Database access working (but no items found)</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                log('❌ Error: ' + error.code + ' - ' + error.message);
+                
+                if (error.code === 'auth/admin-restricted-operation') {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Anonymous Authentication Not Enabled</h4>
+                            <p>Please follow Step 1 above to enable Anonymous authentication in Firebase Console.</p>
+                            <p><strong>Error:</strong> ${error.message}</p>
+                        </div>
+                    `;
+                } else if (error.code === 'PERMISSION_DENIED') {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Database Access Denied</h4>
+                            <p>Authentication worked, but database rules are blocking access.</p>
+                            <p><strong>Error:</strong> ${error.message}</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Authentication Failed</h4>
+                            <p><strong>Error Code:</strong> ${error.code}</p>
+                            <p><strong>Error Message:</strong> ${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
+        };
+
+        log('🚀 Firebase authentication tester loaded');
+        log('📋 Follow Step 1 above, then click "Test Now"');
+    </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "handleliste": {
+      ".read": "auth != null && auth.token.email != null",
+      ".write": "auth != null && auth.token.email != null",
+      "$itemId": {
+        ".validate": "newData.hasChildren(['Name', 'Shop', 'Buy'])",
+        "Name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
+        },
+        "Shop": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50"
+        },
+        "Buy": {
+          ".validate": "newData.isBoolean()"
+        },
+        "BoughtBy": {
+          ".validate": "newData.isString() && newData.val().length <= 50"
+        },
+        "BoughtDate": {
+          ".validate": "newData.val() === null || newData.isString()"
+        },
+        "BuyNumber": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "AddedBy": {
+          ".validate": "newData.isString() && newData.val().length <= 50"
+        }
+      }
+    }
+  }
+}

@@ -9,21 +9,26 @@
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <span id="shopName" class="shop-name" onclick="changeShop()">Loading shop...</span>
-      <select id="fontSize" onchange="updateFontSize()">
-        <option value="16">Normal</option>
-        <option value="20">Large</option>
-        <option value="24">Extra Large</option>
-        <option value="36">Huge</option>
-      </select>
-      <select id="personSelector" onchange="updatePerson()">
-        <option value="Morten">Morten</option>
-        <option value="Linh">Linh</option>
-      </select>
-    </div>
+    <div class="content">
+      <div class="header">
+        <h1>Shopping List</h1>
+        <div class="controls">
+          <select id="fontSize" onchange="updateFontSize()">
+            <option value="16">Normal</option>
+            <option value="20">Large</option>
+            <option value="24">Extra Large</option>
+            <option value="36">Huge</option>
+          </select>
+          <select id="personSelector" onchange="updatePerson()">
+            <option value="Morten">Morten</option>
+            <option value="Linh">Linh</option>
+          </select>
+          <button onclick="logout()" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-left: 10px;">🚪 Logout</button>
+        </div>
+      </div>
 
-    <ul id="itemList" class="item-list"></ul>
+      <ul id="itemList" class="item-list"></ul>
+    </div>
 
     <div class="footer">
       <button onclick="window.location.href='markitemtobuy.html'">Add</button>

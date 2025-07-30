@@ -1,5 +1,11 @@
 # Sync check
 
+# Environment files (local configs)
+.env
+.env.local
+.env.production
+/.env.*
+
 # Firebase build and deployment files
 /firebase-debug.log
 /firebase-debug.*.log

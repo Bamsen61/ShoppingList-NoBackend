@@ -1,6 +1,6 @@
 // js/additemtodatabase.js
 
-import { db, push, ref } from "./firebase-init.js";
+import { db, push, ref, waitForAuth } from "./firebase-init.js";
 import { applySavedFontSize, getFromStorage } from "./common.js";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -17,18 +17,31 @@ window.submitItem = async function () {
     return;
   }
 
-  const item = {
-    Name,
-    Shop,
-    AddedBy,
-    BoughtBy: "",
-    BoughtDate: [],
-    Buy: true,
-    BuyNumber: 0
-  };
+  try {
+    // Wait for authentication before adding item
+    await waitForAuth();
+    
+    const item = {
+      Name,
+      Shop,
+      AddedBy,
+      BoughtBy: "",
+      BoughtDate: [],
+      Buy: true,
+      BuyNumber: 0
+    };
 
-  await push(ref(db, "handleliste"), item);
-  window.location.href = "index.html";
+    await push(ref(db, "handleliste"), item);
+    window.location.href = "index.html";
+  } catch (error) {
+    console.error("❌ Error adding item:", error);
+    
+    if (error.code === 'PERMISSION_DENIED') {
+      alert("Authentication required. Please check your connection and try again.");
+    } else {
+      alert("Failed to add item. Please try again.");
+    }
+  }
 };
 
 window.cancelAdd = function () {
