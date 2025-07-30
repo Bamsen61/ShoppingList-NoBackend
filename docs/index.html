@@ -1,0 +1,35 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shopping List</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span id="shopName" class="shop-name" onclick="changeShop()">Loading shop...</span>
+      <select id="fontSize" onchange="updateFontSize()">
+        <option value="16">Normal</option>
+        <option value="20">Large</option>
+        <option value="24">Extra Large</option>
+        <option value="36">Huge</option>
+      </select>
+      <select id="personSelector" onchange="updatePerson()">
+        <option value="Morten">Morten</option>
+        <option value="Linh">Linh</option>
+      </select>
+    </div>
+
+    <ul id="itemList" class="item-list"></ul>
+
+    <div class="footer">
+      <button onclick="window.location.href='markitemtobuy.html'">Add</button>
+    </div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

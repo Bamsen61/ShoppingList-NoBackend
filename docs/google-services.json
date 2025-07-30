@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "193993736216",
+    "firebase_url": "https://handleliste-3bdaa-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "handleliste-3bdaa",
+    "storage_bucket": "handleliste-3bdaa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:193993736216:android:ac36bb1f7010918c5f836d",
+        "android_client_info": {
+          "package_name": "com.steien.morten.handleliste"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOtxlG3Wvf2ZUF_KbZ7wlCiDHqJ5RMrvY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

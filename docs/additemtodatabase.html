@@ -1,0 +1,30 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Add New Item</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h2>Add Item</h2>
+    <label>
+      Name:
+      <input type="text" id="itemName" autofocus>
+    </label><br>
+    <label>
+      Shop:
+      <input type="text" id="itemShop">
+    </label><br>
+
+    <div class="footer">
+      <button onclick="submitItem()">OK</button>
+      <button onclick="cancelAdd()">Cancel</button>
+    </div>
+  </div>
+
+  <script type="module" src="./js/additemtodatabase.js"></script>
+</body>
+</html>

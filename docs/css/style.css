@@ -1,0 +1,6 @@
+
+body { font-family: sans-serif; }
+.container { max-width: 600px; margin: auto; padding: 1em; }
+.item-list { list-style: none; padding: 0; }
+.item-row { display: flex; justify-content: space-between; padding: 0.5em 0; border-bottom: 1px solid #ccc; }
+.footer { margin-top: 1em; display: flex; gap: 1em; justify-content: center; }
