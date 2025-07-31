@@ -1,6 +1,6 @@
 // js/main.js
 
-import { db, ref, update, get, child, waitForAuth, signOutUser } from "./firebase-init.js";
+import { db, ref, update, get, child, onValue, waitForAuth, signOutUser } from "./firebase-init.js";
 import {
   getFromStorage,
   applySavedFontSize,
@@ -10,6 +10,7 @@ import {
 
 // Wait for DOM to be ready before getting elements
 let itemList;
+let unsubscribeMainListener = null; // Store the listener to clean up later
 
 function getItemList() {
   if (!itemList) {
@@ -102,82 +103,98 @@ function markItemAsBought(itemId) {
     })
     .then(() => {
       console.log("✅ Item marked as bought successfully");
-      // Refresh the list
-      fetchItems();
+      // No need to manually refresh - real-time listener will handle it
     })
     .catch(error => {
       console.error("❌ Error marking item as bought:", error);
     });
 }
 
-function fetchItems() {
-  console.log("🔍 Fetching all items marked for buying...");
+function setupRealtimeListener() {
+  console.log("🔍 Setting up real-time listener for shopping items...");
   console.log("🔐 Waiting for authentication...");
   
   // Wait for authentication before accessing database
   waitForAuth()
     .then(() => {
-      console.log("✅ Authentication complete, accessing database...");
+      console.log("✅ Authentication complete, setting up real-time listener...");
       const itemsRef = ref(db, "handleliste");
-      return get(itemsRef);
-    })
-    .then(snapshot => {
-      console.log("📡 Firebase response received");
-      const data = snapshot.val() || {};
-      console.log("📊 Raw database data (first 3 items):", Object.keys(data).slice(0, 3).reduce((obj, key) => {
-        obj[key] = data[key];
-        return obj;
-      }, {}));
       
-      const allItems = Object.entries(data).map(([id, val]) => ({ id, ...val }));
-      console.log("📋 Total items found:", allItems.length);
-      
-      const buyableItems = allItems.filter(item => item.Buy === true);
-      console.log("🛒 Items marked for buying (Buy === true):", buyableItems.length);
-      console.log("🛒 Buyable items details:", buyableItems);
-      
-      // Extra debugging - check each item's Buy value
-      const buyTrueCount = allItems.filter(item => item.Buy === true).length;
-      const buyFalseCount = allItems.filter(item => item.Buy === false).length;
-      const buyUndefinedCount = allItems.filter(item => item.Buy === undefined).length;
-      
-      console.log("📊 Buy value statistics:");
-      console.log("  - Buy === true:", buyTrueCount);
-      console.log("  - Buy === false:", buyFalseCount);
-      console.log("  - Buy === undefined:", buyUndefinedCount);
-      
-      renderItemList(buyableItems);
+      // Set up real-time listener instead of one-time get()
+      unsubscribeMainListener = onValue(itemsRef, (snapshot) => {
+        console.log("� Real-time shopping list update received!");
+        const data = snapshot.val() || {};
+        console.log("📊 Raw database data (first 3 items):", Object.keys(data).slice(0, 3).reduce((obj, key) => {
+          obj[key] = data[key];
+          return obj;
+        }, {}));
+        
+        const allItems = Object.entries(data).map(([id, val]) => ({ id, ...val }));
+        console.log("📋 Total items found:", allItems.length);
+        
+        const buyableItems = allItems.filter(item => item.Buy === true);
+        console.log("🛒 Items marked for buying (Buy === true):", buyableItems.length);
+        console.log("🛒 Buyable items details:", buyableItems);
+        
+        // Extra debugging - check each item's Buy value
+        const buyTrueCount = allItems.filter(item => item.Buy === true).length;
+        const buyFalseCount = allItems.filter(item => item.Buy === false).length;
+        const buyUndefinedCount = allItems.filter(item => item.Buy === undefined).length;
+        
+        console.log("📊 Buy value statistics:");
+        console.log("  - Buy === true:", buyTrueCount);
+        console.log("  - Buy === false:", buyFalseCount);
+        console.log("  - Buy === undefined:", buyUndefinedCount);
+        
+        renderItemList(buyableItems);
+      }, (error) => {
+        console.error("❌ Real-time listener error:", error);
+        handleFirebaseError(error);
+      });
     })
     .catch(error => {
-      console.error("❌ Firebase error:", error);
-      console.error("📋 Error details:", error.message);
-      
-      // Show error message to user
-      const itemListElement = getItemList();
-      if (itemListElement) {
-        if (error.code === 'permission-denied') {
-          itemListElement.innerHTML = `<li style="color: orange; padding: 1em;">
-            🔐 Authentication required. Please check Firebase Console:<br>
-            1. Enable Anonymous Authentication<br>
-            2. Check Database Rules<br>
-            <button onclick="location.reload()">🔄 Retry</button>
-          </li>`;
-        } else if (error.code === 'auth/admin-restricted-operation') {
-          itemListElement.innerHTML = `<li style="color: orange; padding: 1em;">
-            🔐 Anonymous auth not enabled in Firebase Console<br>
-            Please enable it in Authentication → Sign-in method<br>
-            <button onclick="location.reload()">🔄 Retry</button>
-          </li>`;
-        } else {
-          itemListElement.innerHTML = `<li style="color: red; padding: 1em;">
-            ❌ Error loading items: ${error.message}<br>
-            Check browser console for details.<br>
-            <button onclick="location.reload()">🔄 Retry</button>
-          </li>`;
-        }
-      }
+      console.error("❌ Authentication error:", error);
+      handleFirebaseError(error);
     });
 }
+
+function handleFirebaseError(error) {
+  console.error("❌ Firebase error:", error);
+  console.error("📋 Error details:", error.message);
+  
+  // Show error message to user
+  const itemListElement = getItemList();
+  if (itemListElement) {
+    if (error.code === 'permission-denied') {
+      itemListElement.innerHTML = `<li style="color: orange; padding: 1em;">
+        🔐 Authentication required. Please check Firebase Console:<br>
+        1. Enable Anonymous Authentication<br>
+        2. Check Database Rules<br>
+        <button onclick="location.reload()">🔄 Retry</button>
+      </li>`;
+    } else if (error.code === 'auth/admin-restricted-operation') {
+      itemListElement.innerHTML = `<li style="color: orange; padding: 1em;">
+        🔐 Anonymous auth not enabled in Firebase Console<br>
+        Please enable it in Authentication → Sign-in method<br>
+        <button onclick="location.reload()">🔄 Retry</button>
+      </li>`;
+    } else {
+      itemListElement.innerHTML = `<li style="color: red; padding: 1em;">
+        ❌ Error loading items: ${error.message}<br>
+        Check browser console for details.<br>
+        <button onclick="location.reload()">🔄 Retry</button>
+      </li>`;
+    }
+  }
+}
+
+// Clean up listener when page unloads
+window.addEventListener('beforeunload', () => {
+  if (unsubscribeMainListener) {
+    unsubscribeMainListener();
+    console.log("🧹 Main real-time listener cleaned up");
+  }
+});
 
 window.addEventListener("DOMContentLoaded", () => {
   console.log("🚀 ShoppingList app starting...");
@@ -189,8 +206,8 @@ window.addEventListener("DOMContentLoaded", () => {
   
   document.getElementById("personSelector").value = person;
   
-  console.log("📡 Starting to fetch items...");
-  fetchItems();
+  console.log("📡 Setting up real-time listener...");
+  setupRealtimeListener();
 });
 
 window.updatePerson = () => {
