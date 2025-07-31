@@ -7,7 +7,7 @@ A secure shopping list web application using Firebase Realtime Database, designe
 **In local Powershell:**
 - cd "d:\GIT\ShoppingList-NoBackend\docs"
 - python -m http.server 8000
-
+- Open http://localhost:8000/
 
 ## 🔒 Security Features
 
