@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>30 Minute Countdown</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #countdown {
+            font-size: 40vw;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            z-index: 10;
+            position: relative;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        #countdown.gigantic {
+            font-size: 60vw;
+            color: #ff2424;
+            text-shadow: 0 0 30px rgba(255, 107, 107, 0.8);
+        }
+
+        #message {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 8vw;
+            font-weight: bold;
+            color: #ff6b6b;
+            text-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        #message.show {
+            opacity: 1;
+        }
+
+        .firework {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            z-index: 5;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            z-index: 5;
+        }
+
+        @keyframes firework-explode {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(50);
+                opacity: 0;
+            }
+        }
+
+        @keyframes particle-fly {
+            0% {
+                transform: translate(0, 0);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--dx), var(--dy));
+                opacity: 0;
+            }
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex;
+            flex-direction: row;
+            gap: 15px;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 80px;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .time-input {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .time-input label {
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .time-input input {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 16px;
+            text-align: center;
+            width: 80px;
+            outline: none;
+        }
+
+        .time-input input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .time-input input:focus {
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .time-input button {
+            padding: 8px 16px;
+            font-size: 14px;
+            min-width: 60px;
+        }
+    </style>
+</head>
+<body>
+    <div class="time-input">
+        <label for="minutesInput">Minutes:</label>
+        <input type="number" id="minutesInput" placeholder="30" min="1" max="120">
+        <button onclick="setCustomTime()" id="setBtn">Set</button>
+    </div>
+    
+    <div id="countdown">1800</div>
+    <div id="message"></div>
+    
+    <div class="controls">
+        <button onclick="startCountdown()" id="startBtn">Start</button>
+        <button onclick="pauseCountdown()" id="pauseBtn" disabled>Pause</button>
+        <button onclick="resetCountdown()" id="resetBtn">Reset</button>
+    </div>
+
+    <script>
+        // INTERESTING NUMBERS CONFIGURATION - Easy to modify
+        const INTERESTING_NUMBERS = [
+            1700, 1600, 1500, 1400, 1300, 1200, 1100, 1000,
+            900, 800, 700, 600, 500, 400, 300, 200, 100,
+            1234, 777, 666, 111, 1111,
+            123, 42
+        ];
+
+        const INNSPURT_TIME = 63; // Show "INNSPURT!" at this many seconds
+        const GIGANTIC_THRESHOLD = 60; // Last 60 seconds get gigantic numbers
+        let INITIAL_TIME = 1800; // 30 minutes in seconds = 1800
+
+        let timeLeft = INITIAL_TIME;
+        let countdownInterval = null;
+        let isRunning = false;
+
+        const countdownElement = document.getElementById('countdown');
+        const messageElement = document.getElementById('message');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const minutesInput = document.getElementById('minutesInput');
+        const setBtn = document.getElementById('setBtn');
+
+        function updateDisplay() {
+            countdownElement.textContent = timeLeft;
+            
+            // Apply gigantic style for last 60 seconds
+            if (timeLeft <= GIGANTIC_THRESHOLD && timeLeft > 0) {
+                countdownElement.classList.add('gigantic');
+            } else {
+                countdownElement.classList.remove('gigantic');
+            }
+        }
+
+        function showMessage(text, duration = 3000) {
+            messageElement.textContent = text;
+            messageElement.classList.add('show');
+            setTimeout(() => {
+                messageElement.classList.remove('show');
+            }, duration);
+        }
+
+        function createFirework(x, y, color) {
+            const firework = document.createElement('div');
+            firework.className = 'firework';
+            firework.style.left = x + 'px';
+            firework.style.top = y + 'px';
+            firework.style.background = color;
+            firework.style.animation = 'firework-explode 1s ease-out forwards';
+            document.body.appendChild(firework);
+
+            // Create particles
+            for (let i = 0; i < 20; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = x + 'px';
+                particle.style.top = y + 'px';
+                particle.style.background = color;
+                
+                const angle = (i / 20) * 2 * Math.PI;
+                const distance = 100 + Math.random() * 100;
+                const dx = Math.cos(angle) * distance;
+                const dy = Math.sin(angle) * distance;
+                
+                particle.style.setProperty('--dx', dx + 'px');
+                particle.style.setProperty('--dy', dy + 'px');
+                particle.style.animation = 'particle-fly 1.5s ease-out forwards';
+                
+                document.body.appendChild(particle);
+                
+                setTimeout(() => {
+                    particle.remove();
+                }, 1500);
+            }
+
+            setTimeout(() => {
+                firework.remove();
+            }, 1000);
+        }
+
+        function celebrateWithFireworks(isFinale = false) {
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'];
+            const fireworkCount = isFinale ? 15 : 5;
+            
+            for (let i = 0; i < fireworkCount; i++) {
+                setTimeout(() => {
+                    const x = Math.random() * window.innerWidth;
+                    const y = Math.random() * window.innerHeight;
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    createFirework(x, y, color);
+                }, i * (isFinale ? 200 : 500));
+            }
+        }
+
+        function startCountdown() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                updateDisplay();
+                
+                // Check for interesting numbers
+                if (INTERESTING_NUMBERS.includes(timeLeft)) {
+                    celebrateWithFireworks();
+                }
+                
+                // Show "INNSPURT!" message
+                if (timeLeft === INNSPURT_TIME) {
+                    showMessage('INNSPURT!', 4000);
+                }
+                
+                // Countdown finished
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    isRunning = false;
+                    countdownElement.textContent = '0';
+                    countdownElement.classList.add('gigantic');
+                    showMessage('FERDIG!', 5000);
+                    celebrateWithFireworks(true); // Extra big finale
+                    
+                    startBtn.disabled = false;
+                    pauseBtn.disabled = true;
+                }
+            }, 1000);
+        }
+
+        function pauseCountdown() {
+            if (!isRunning) return;
+            
+            clearInterval(countdownInterval);
+            isRunning = false;
+            startBtn.disabled = false;
+            pauseBtn.disabled = true;
+        }
+
+        function resetCountdown() {
+            clearInterval(countdownInterval);
+            isRunning = false;
+            timeLeft = INITIAL_TIME;
+            updateDisplay();
+            countdownElement.classList.remove('gigantic');
+            messageElement.classList.remove('show');
+            
+            startBtn.disabled = false;
+            pauseBtn.disabled = true;
+        }
+
+        function setCustomTime() {
+            if (isRunning) {
+                showMessage('Stop countdown first!', 2000);
+                return;
+            }
+            
+            const minutes = parseInt(minutesInput.value);
+            if (isNaN(minutes) || minutes < 1 || minutes > 120) {
+                showMessage('Enter 1-120 minutes!', 2000);
+                return;
+            }
+            
+            INITIAL_TIME = minutes * 60;
+            timeLeft = INITIAL_TIME;
+            updateDisplay();
+            showMessage(`Set to ${minutes} minutes (${INITIAL_TIME} seconds)`, 2000);
+        }
+
+        // Initialize display
+        updateDisplay();
+
+        // Allow Enter key to set time
+        minutesInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                setCustomTime();
+            }
+        });
+
+        // Auto-start on mobile touch
+        document.addEventListener('touchstart', function(e) {
+            if (!isRunning && timeLeft === INITIAL_TIME) {
+                startCountdown();
+            }
+        }, { once: true });
+    </script>
+</body>
+</html>
