@@ -8,7 +8,8 @@
         body {
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            /* background: linear-gradient(135deg, #1e3c72, #2a5298); */
+            background: linear-gradient(135deg, #021230, #270202);
             font-family: 'Arial', sans-serif;
             display: flex;
             justify-content: center;
@@ -190,9 +191,10 @@
         // INTERESTING NUMBERS CONFIGURATION - Easy to modify
         const INTERESTING_NUMBERS = [
             1700, 1600, 1500, 1400, 1300, 1200, 1100, 1000,
-            900, 800, 700, 600, 500, 400, 300, 200, 100,
-            1234, 777, 666, 111, 1111,
-            123, 42
+            987, 900, 876, 800, 789, 765, 700, 678, 654, 600,
+            567, 543, 500, 456, 432, 400, 345, 321, 300, 234, 200, 100,
+            1234, 999, 888, 777, 666, 555, 444, 333, 222, 111, 1111,
+            123, 42, 96, 69
         ];
 
         const INNSPURT_TIME = 63; // Show "INNSPURT!" at this many seconds
@@ -269,8 +271,9 @@
         }
 
         function celebrateWithFireworks(isFinale = false) {
-            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'];
-            const fireworkCount = isFinale ? 15 : 5;
+            // const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'];
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff', '#ffffff'];
+            const fireworkCount = isFinale ? 25 : 10;
             
             for (let i = 0; i < fireworkCount; i++) {
                 setTimeout(() => {
