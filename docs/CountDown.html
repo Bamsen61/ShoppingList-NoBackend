@@ -277,8 +277,13 @@
             
             for (let i = 0; i < fireworkCount; i++) {
                 setTimeout(() => {
-                    const x = Math.random() * window.innerWidth;
-                    const y = Math.random() * window.innerHeight;
+                    const centerX = window.innerWidth / 2;
+                    const centerY = window.innerHeight / 2;
+                    const quarterWidth = window.innerWidth / 4;
+                    const quarterHeight = window.innerHeight / 4;
+                    
+                    const x = centerX + (Math.random() - 0.5) * quarterWidth;
+                    const y = centerY + (Math.random() - 0.5) * quarterHeight;
                     const color = colors[Math.floor(Math.random() * colors.length)];
                     createFirework(x, y, color);
                 }, i * (isFinale ? 200 : 500));
