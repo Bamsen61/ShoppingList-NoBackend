@@ -177,10 +177,10 @@
         <input type="number" id="minutesInput" placeholder="30" min="1" max="120">
         <button onclick="setCustomTime()" id="setBtn">Set</button>
     </div>
-    
+
     <div id="countdown">1800</div>
     <div id="message"></div>
-    
+
     <div class="controls">
         <button onclick="startCountdown()" id="startBtn">Start</button>
         <button onclick="pauseCountdown()" id="pauseBtn" disabled>Pause</button>
@@ -198,6 +198,34 @@
             1400, 1414, 1444, 1500, 1515, 1555, 1600, 1616,
             1666, 1700, 1717, 1777
         ];
+
+        // NUMBER → MESSAGE CONFIGURATION
+        // Add or change entries to show a quick message when the countdown hits that second value.
+        // Tip: Use absolute seconds (e.g., 600 = 10 minutes). Keep sparse to avoid message spam.
+        const NUMBER_MESSAGES = {
+            1799: 'Co Len!!',
+            1111: '15',
+            1024: '0100.0000.000',
+             900: 'Halvveis',
+             777: 'Wuhuuuu!!!',
+             747: 'Jumbo',
+             666: 'Morgenstjernen',
+             512: '0010.0000.000',
+             420: 'Munchies',
+             404: 'Not Found',
+             360: 'Full circle!',
+             314: '3.1415926535',
+             256: '0001.0000.000',
+             180: 'Turn Around!',
+             128: '1000.000',
+             111: '7',
+              96: 'Skål!',
+              69: 'Nice!',
+              64: '0100.000',
+              42: 'Life the Universe and Everything!',
+              32: '0010.000',
+              16: '0001.000',
+        };
 
         const INNSPURT_TIME = 63; // Show "INNSPURT!" at this many seconds
         const GIGANTIC_THRESHOLD = 60; // Last 60 seconds get gigantic numbers
@@ -217,7 +245,7 @@
 
         function updateDisplay() {
             countdownElement.textContent = timeLeft;
-            
+
             // Apply gigantic style for last 60 seconds
             if (timeLeft <= GIGANTIC_THRESHOLD && timeLeft > 0) {
                 countdownElement.classList.add('gigantic');
@@ -250,18 +278,18 @@
                 particle.style.left = x + 'px';
                 particle.style.top = y + 'px';
                 particle.style.background = color;
-                
+
                 const angle = (i / 20) * 2 * Math.PI;
                 const distance = 100 + Math.random() * 100;
                 const dx = Math.cos(angle) * distance;
                 const dy = Math.sin(angle) * distance;
-                
+
                 particle.style.setProperty('--dx', dx + 'px');
                 particle.style.setProperty('--dy', dy + 'px');
                 particle.style.animation = 'particle-fly 1.5s ease-out forwards';
-                
+
                 document.body.appendChild(particle);
-                
+
                 setTimeout(() => {
                     particle.remove();
                 }, 1500);
@@ -276,14 +304,14 @@
             // const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'];
             const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff', '#ffffff'];
             const fireworkCount = isFinale ? 25 : 10;
-            
+
             for (let i = 0; i < fireworkCount; i++) {
                 setTimeout(() => {
                     const centerX = window.innerWidth / 2;
                     const centerY = window.innerHeight / 2;
                     const quarterWidth = window.innerWidth / 4;
                     const quarterHeight = window.innerHeight / 4;
-                    
+
                     const x = centerX + (Math.random() - 0.5) * quarterWidth;
                     const y = centerY + (Math.random() - 0.5) * quarterHeight;
                     const color = colors[Math.floor(Math.random() * colors.length)];
@@ -294,25 +322,30 @@
 
         function startCountdown() {
             if (isRunning) return;
-            
+
             isRunning = true;
             startBtn.disabled = true;
             pauseBtn.disabled = false;
-            
+
             countdownInterval = setInterval(() => {
                 timeLeft--;
                 updateDisplay();
-                
+
                 // Check for interesting numbers
                 if (INTERESTING_NUMBERS.includes(timeLeft)) {
                     celebrateWithFireworks();
                 }
-                
+
+                // Show configured number messages
+                if (NUMBER_MESSAGES[timeLeft]) {
+                    showMessage(NUMBER_MESSAGES[timeLeft], 3000);
+                }
+
                 // Show "INNSPURT!" message
                 if (timeLeft === INNSPURT_TIME) {
                     showMessage('INNSPURT!', 4000);
                 }
-                
+
                 // Countdown finished
                 if (timeLeft <= 0) {
                     clearInterval(countdownInterval);
@@ -321,7 +354,7 @@
                     countdownElement.classList.add('gigantic');
                     showMessage('FERDIG!', 5000);
                     celebrateWithFireworks(true); // Extra big finale
-                    
+
                     startBtn.disabled = false;
                     pauseBtn.disabled = true;
                 }
@@ -330,7 +363,7 @@
 
         function pauseCountdown() {
             if (!isRunning) return;
-            
+
             clearInterval(countdownInterval);
             isRunning = false;
             startBtn.disabled = false;
@@ -344,7 +377,7 @@
             updateDisplay();
             countdownElement.classList.remove('gigantic');
             messageElement.classList.remove('show');
-            
+
             startBtn.disabled = false;
             pauseBtn.disabled = true;
         }
@@ -354,13 +387,13 @@
                 showMessage('Stop countdown first!', 2000);
                 return;
             }
-            
+
             const minutes = parseInt(minutesInput.value);
             if (isNaN(minutes) || minutes < 1 || minutes > 120) {
                 showMessage('Enter 1-120 minutes!', 2000);
                 return;
             }
-            
+
             INITIAL_TIME = minutes * 60;
             timeLeft = INITIAL_TIME;
             updateDisplay();
