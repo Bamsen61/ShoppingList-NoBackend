@@ -203,18 +203,33 @@
         // Add or change entries to show a quick message when the countdown hits that second value.
         // Tip: Use absolute seconds (e.g., 600 = 10 minutes). Keep sparse to avoid message spam.
         const NUMBER_MESSAGES = {
-            1799: 'Co Len!!',
+            1798: 'Co Len!!',
             // 1793: 'Testmelding',
             1792: '0111 0000 0000',
+            1620: '10%',
             1536: '0110 0000 0000',
+            1440: '20%',
+            1350: 'En firedel',
             1280: '0101 0000 0000',
+            1260: '30%',
             1111: '15',
+            1110: '14',
+            1101: '13',
+            1100: '12',
+            1080: '40%',
             1024: '0100 0000 0000',
-             900: 'Halvveis',
+            1011: '11',
+            1010: '10',
+            1001: '9',
+            1000: '8',
+             900: 'Halvveis!',
              777: 'Wuhuuuu!!!',
              747: 'Jumbo',
+             720: '60%',
              666: 'Morning Star!',
+             540: '70%',
              512: '0010 0000 0000',
+             450: 'Tre firedeler',
              420: 'Munchies',
              404: 'Not Found',
              360: 'Full circle!',
@@ -223,12 +238,17 @@
              180: 'Turn Around!',
              128: '1000 0000',
              111: '7',
+             110: '6',
+             101: '5',
+             100: '4',
               96: 'Skål!',
               69: 'Nice!',
               64: '0100 0000',
               42: 'Life the Universe and Everything!',
               32: '0010 0000',
               16: '0001 0000',
+              11: '3',
+              10: '2',
         };
 
         const INNSPURT_TIME = 63; // Show "INNSPURT!" at this many seconds
@@ -341,8 +361,8 @@
                 }
 
                 // Show configured number messages
-                if (NUMBER_MESSAGES[timeLeft]) {
-                    showMessage(NUMBER_MESSAGES[timeLeft], 3000);
+                if (NUMBER_MESSAGES[timeLeft-1]) { // -1 to show message just as number appears
+                    showMessage(NUMBER_MESSAGES[timeLeft-1], 3000);
                 }
 
                 // Show "INNSPURT!" message
