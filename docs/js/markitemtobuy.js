@@ -4,6 +4,7 @@ import { db, ref, update, onValue, waitForAuth } from "./firebase-init.js";
 import { applySavedFontSize, getFromStorage } from "./common.js";
 
 let unsubscribeListener = null; // Store the listener to clean up later
+let activeLetterButton = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   applySavedFontSize();
@@ -36,21 +37,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 function renderAddItems(data, person) {
   const list = document.getElementById("addList");
+  const letterNav = document.getElementById("letterNav");
   list.innerHTML = "";
+  letterNav.innerHTML = "";
 
-  const allItems = Object.entries(data).map(([id, val]) => ({ id, ...val })).filter(x => x.Buy === false);
+  const displayItems = Object.entries(data)
+    .map(([id, val]) => ({ id, ...val }))
+    .filter(item => item.Buy === false)
+    .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", undefined, { sensitivity: "base" }));
 
-  const personItems = allItems.filter(x => x.AddedBy === person).sort((a, b) => b.BuyNumber - a.BuyNumber).slice(0, 15);
-  const personIds = new Set(personItems.map(i => i.id));
+  const letterTargets = new Map();
+  const lettersInUse = [];
 
-  const topOthers = allItems.filter(x => !personIds.has(x.id)).sort((a, b) => b.BuyNumber - a.BuyNumber).slice(0, 1);
-  const topOthersIds = new Set(topOthers.map(i => i.id));
-
-  const rest = allItems.filter(x => !personIds.has(x.id) && !topOthersIds.has(x.id)).sort((a, b) => a.Name.localeCompare(b.Name));
-
-  const displayItems = [...personItems, ...topOthers, ...rest];
-
-  displayItems.forEach((item) => {
+  displayItems.forEach((item, index) => {
     const li = document.createElement("li");
     li.classList.add("item-row");
 
@@ -62,11 +61,21 @@ function renderAddItems(data, person) {
     shopSpan.classList.add("item-shop");
     shopSpan.textContent = item.Shop || "No shop";
 
+    const itemLetter = getItemLetter(item.Name);
+    if (!letterTargets.has(itemLetter)) {
+      li.id = `letter-target-${index}`;
+      li.classList.add("letter-target");
+      letterTargets.set(itemLetter, li.id);
+      lettersInUse.push(itemLetter);
+    }
+
     li.appendChild(nameSpan);
     li.appendChild(shopSpan);
-    li.addEventListener("click", () => markToBuy(item.id, li));
+    li.addEventListener("click", () => markToBuy(item.id));
     list.appendChild(li);
   });
+
+  renderLetterNav(letterNav, lettersInUse, letterTargets);
 }
 
 // Clean up listener when page unloads
@@ -76,7 +85,39 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
-async function markToBuy(id, liElement) {
+function getItemLetter(name) {
+  const firstCharacter = (name || "").trim().charAt(0);
+  return (firstCharacter || "#").toLocaleUpperCase("nb-NO");
+}
+
+function renderLetterNav(letterNav, lettersInUse, letterTargets) {
+  activeLetterButton = null;
+
+  lettersInUse.forEach((letter) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "letter-nav-button";
+    button.textContent = letter;
+    button.setAttribute("aria-label", `Jump to items starting with ${letter}`);
+    button.addEventListener("click", () => {
+      const targetId = letterTargets.get(letter);
+      const targetElement = targetId ? document.getElementById(targetId) : null;
+
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (activeLetterButton) {
+          activeLetterButton.classList.remove("is-active");
+        }
+        button.classList.add("is-active");
+        activeLetterButton = button;
+      }
+    });
+
+    letterNav.appendChild(button);
+  });
+}
+
+async function markToBuy(id) {
   try {
     await waitForAuth();
     const itemRef = ref(db, `handleliste/${id}`);
