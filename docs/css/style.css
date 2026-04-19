@@ -83,7 +83,7 @@ body {
   border-radius: 0;
   background: transparent;
   color: #004a99;
-  font-size: 0.6em;
+  font-size: 0.66em;
   font-weight: 700;
   line-height: 1;
   border: none;
@@ -112,7 +112,7 @@ body {
 
   .letter-nav-button {
     padding: 0.05em 0.12em;
-    font-size: 0.52em;
+    font-size: 0.57em;
   }
 }
 
