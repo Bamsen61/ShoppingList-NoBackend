@@ -165,17 +165,22 @@ function handleFirebaseError(error) {
   // Show error message to user
   const itemListElement = getItemList();
   if (itemListElement) {
-    if (error.code === 'permission-denied') {
+    if (error.message === 'Not authenticated' || error.message === 'Auth timeout') {
       itemListElement.innerHTML = `<li style="color: orange; padding: 1em;">
-        🔐 Authentication required. Please check Firebase Console:<br>
-        1. Enable Anonymous Authentication<br>
-        2. Check Database Rules<br>
+        🔐 Please sign in to use the shopping list.<br>
+        If you were signed out, go to the login page and try again.<br>
+        <button onclick="location.reload()">🔄 Retry</button>
+      </li>`;
+    } else if (error.code === 'permission-denied') {
+      itemListElement.innerHTML = `<li style="color: orange; padding: 1em;">
+        🔐 Access denied.<br>
+        Please sign in again, or check Firebase Database Rules if this continues.<br>
         <button onclick="location.reload()">🔄 Retry</button>
       </li>`;
     } else if (error.code === 'auth/admin-restricted-operation') {
       itemListElement.innerHTML = `<li style="color: orange; padding: 1em;">
-        🔐 Anonymous auth not enabled in Firebase Console<br>
-        Please enable it in Authentication → Sign-in method<br>
+        🔐 Sign-in is not available right now.<br>
+        Check Firebase Authentication settings in the Firebase Console.<br>
         <button onclick="location.reload()">🔄 Retry</button>
       </li>`;
     } else {

@@ -36,8 +36,10 @@ window.submitItem = async function () {
   } catch (error) {
     console.error("❌ Error adding item:", error);
     
-    if (error.code === 'PERMISSION_DENIED') {
-      alert("Authentication required. Please check your connection and try again.");
+    if (error.message === 'Not authenticated' || error.message === 'Auth timeout') {
+      alert("Please sign in before adding items.");
+    } else if (error.code === 'PERMISSION_DENIED' || error.code === 'permission-denied') {
+      alert("Access denied. Please sign in again and try once more.");
     } else {
       alert("Failed to add item. Please try again.");
     }
