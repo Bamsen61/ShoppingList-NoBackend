@@ -53,7 +53,17 @@ function renderAddItems(data, person) {
   displayItems.forEach((item) => {
     const li = document.createElement("li");
     li.classList.add("item-row");
-    li.innerHTML = `<span class="item-name">${item.Name}</span><span class="item-shop">${item.Shop}</span>`;
+
+    const nameSpan = document.createElement("span");
+    nameSpan.classList.add("item-name");
+    nameSpan.textContent = item.Name || "Unnamed item";
+
+    const shopSpan = document.createElement("span");
+    shopSpan.classList.add("item-shop");
+    shopSpan.textContent = item.Shop || "No shop";
+
+    li.appendChild(nameSpan);
+    li.appendChild(shopSpan);
     li.addEventListener("click", () => markToBuy(item.id, li));
     list.appendChild(li);
   });
