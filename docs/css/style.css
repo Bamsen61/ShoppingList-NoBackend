@@ -24,17 +24,11 @@ body {
   flex-direction: column;
 }
 
-.search-label {
-  display: block;
-  margin-bottom: 0.35em;
-  font-weight: 600;
-}
-
 .search-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.75em;
-  margin-bottom: 0.75em;
+  padding: 0.4em 0.55em;
+  margin-bottom: 0.3em;
   border: 1px solid #bbb;
   border-radius: 6px;
   font-size: 1em;
@@ -62,11 +56,12 @@ body {
   position: sticky;
   bottom: 0;
   background-color: white;
-  padding: 1em 0;
+  padding: 0.3em 0;
   border-top: 1px solid #ddd;
   display: flex;
-  flex-direction: column;
-  gap: 0.5em;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0.35em;
   justify-content: center;
   align-items: center;
   box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
@@ -121,6 +116,27 @@ body {
     padding-right: 1.8em;
   }
 
+  .content h2 {
+    margin-top: 0;
+    margin-bottom: 0.25em;
+  }
+
+  .search-input {
+    padding: 0.3em 0.45em;
+    margin-bottom: 0.2em;
+  }
+
+  .footer {
+    padding: 0.2em 0;
+    gap: 0.3em;
+  }
+
+  .footer button {
+    flex: 1 1 0;
+    padding: 0.42em 0.4em;
+    font-size: 0.95em;
+  }
+
   .letter-nav {
     right: 0.1em;
     gap: 0.05em;
@@ -165,7 +181,7 @@ label { display: block; margin-bottom: 1em; }
 input[type="text"] { width: 100%; padding: 0.5em; margin-top: 0.25em; }
 
 button { 
-  padding: 0.75em 1.5em; 
+  padding: 0.5em 0.9em; 
   cursor: pointer; 
   border: none;
   border-radius: 5px;
@@ -173,7 +189,7 @@ button {
   color: white;
   font-size: 1em;
   min-height: 44px;  /* Minimum touch target size for mobile */
-  min-width: 80px;
+  min-width: 0;
   transition: background-color 0.2s;
 }
 
