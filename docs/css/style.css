@@ -24,6 +24,22 @@ body {
   flex-direction: column;
 }
 
+.search-label {
+  display: block;
+  margin-bottom: 0.35em;
+  font-weight: 600;
+}
+
+.search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.75em;
+  margin-bottom: 0.75em;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  font-size: 1em;
+}
+
 .item-list { 
   list-style: none; 
   padding: 0;

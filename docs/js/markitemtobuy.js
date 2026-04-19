@@ -1,14 +1,19 @@
 // js/markitemtobuy.js
 
 import { db, ref, update, onValue, waitForAuth } from "./firebase-init.js";
-import { applySavedFontSize, getFromStorage } from "./common.js";
+import { applySavedFontSize } from "./common.js";
 
 let unsubscribeListener = null; // Store the listener to clean up later
 let activeLetterButton = null;
+let availableItems = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
   applySavedFontSize();
-  const person = getFromStorage("person", "Morten");
+  const searchInput = document.getElementById("itemSearch");
+
+  searchInput.addEventListener("input", () => {
+    renderAddItems(availableItems, searchInput.value);
+  });
 
   try {
     await waitForAuth();
@@ -16,7 +21,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     
     unsubscribeListener = onValue(itemsRef, (snapshot) => {
       const data = snapshot.val() || {};
-      renderAddItems(data, person);
+      availableItems = Object.entries(data)
+        .map(([id, val]) => ({ id, ...val }))
+        .filter(item => item.Buy === false)
+        .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", undefined, { sensitivity: "base" }));
+
+      renderAddItems(availableItems, searchInput.value);
     }, (error) => {
       console.error("❌ Real-time listener error:", error);
     });
@@ -35,19 +45,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-function renderAddItems(data, person) {
+function renderAddItems(items, searchTerm = "") {
   const list = document.getElementById("addList");
   const letterNav = document.getElementById("letterNav");
   list.innerHTML = "";
   letterNav.innerHTML = "";
 
-  const displayItems = Object.entries(data)
-    .map(([id, val]) => ({ id, ...val }))
-    .filter(item => item.Buy === false)
-    .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", undefined, { sensitivity: "base" }));
+  const normalizedSearch = searchTerm.trim().toLocaleLowerCase("nb-NO");
+  const displayItems = items.filter((item) => {
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    const searchableText = (item.Name || "").toLocaleLowerCase("nb-NO");
+    return searchableText.includes(normalizedSearch);
+  });
 
   const letterTargets = new Map();
   const lettersInUse = [];
+
+  if (displayItems.length === 0) {
+    const li = document.createElement("li");
+    li.style.padding = "1em";
+    li.style.textAlign = "center";
+    li.style.color = "#666";
+    li.textContent = normalizedSearch
+      ? "No matching items found."
+      : "No items available to add.";
+    list.appendChild(li);
+    return;
+  }
 
   displayItems.forEach((item, index) => {
     const li = document.createElement("li");
