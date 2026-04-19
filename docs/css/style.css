@@ -106,11 +106,11 @@ button:active {
   transform: translateY(1px);
 }
 
-/* Secondary button styling */
-button:nth-child(2) {
+/* Explicit button variants are more robust than position-based styling */
+.button-secondary {
   background-color: #6c757d;
 }
 
-button:nth-child(2):hover {
+.button-secondary:hover {
   background-color: #545b62;
 }
