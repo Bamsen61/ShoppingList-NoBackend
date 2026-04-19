@@ -96,7 +96,9 @@ function setupRealtimeListener() {
       unsubscribeMainListener = onValue(itemsRef, (snapshot) => {
         const data = snapshot.val() || {};
         const allItems = Object.entries(data).map(([id, val]) => ({ id, ...val }));
-        const buyableItems = allItems.filter(item => item.Buy === true);
+        const buyableItems = allItems
+          .filter(item => item.Buy === true)
+          .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", undefined, { sensitivity: "base" }));
         renderItemList(buyableItems);
       }, (error) => {
         console.error("❌ Real-time listener error:", error);
