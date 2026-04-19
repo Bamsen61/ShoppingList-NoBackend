@@ -12,7 +12,7 @@ body {
   max-width: 600px; 
   margin: auto; 
   padding: 1em;
-  padding-right: 4.5em;
+  padding-right: 2.25em;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -65,40 +65,54 @@ body {
 .letter-nav {
   position: fixed;
   top: 50%;
-  right: 0.75em;
+  right: 0.2em;
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
-  gap: 0.35em;
-  z-index: 200;
+  gap: 0.1em;
+  z-index: 300;
+  align-items: center;
+  max-height: calc(100vh - 1.5em);
+  overflow: hidden;
 }
 
 .letter-nav-button {
-  min-width: 2.5em;
-  min-height: 2.5em;
-  padding: 0.35em;
-  border-radius: 999px;
-  font-size: 0.95em;
-  font-weight: bold;
+  min-width: auto;
+  min-height: auto;
+  padding: 0.1em 0.2em;
+  border-radius: 0;
+  background: transparent;
+  color: #004a99;
+  font-size: 0.6em;
+  font-weight: 700;
+  line-height: 1;
+  border: none;
+}
+
+.letter-nav-button:hover {
+  background: transparent;
+  color: #003366;
 }
 
 .letter-nav-button.is-active {
-  background-color: #0056b3;
+  background: transparent;
+  color: #000;
+  text-decoration: underline;
 }
 
 @media (max-width: 640px) {
   .container {
-    padding-right: 5.25em;
+    padding-right: 1.8em;
   }
 
   .letter-nav {
-    right: 0.5em;
+    right: 0.1em;
+    gap: 0.05em;
   }
 
   .letter-nav-button {
-    min-width: 2.25em;
-    min-height: 2.25em;
-    font-size: 0.9em;
+    padding: 0.05em 0.12em;
+    font-size: 0.52em;
   }
 }
 
