@@ -24,24 +24,14 @@ function getItemList() {
 }
 
 function renderItemList(items) {
-  console.log("🎨 Rendering items:", items);
-  console.log("📊 Number of items to render:", items.length);
-  
   const itemListElement = getItemList();
   if (!itemListElement) {
     console.error("❌ Cannot render items: itemList element not found");
-    console.error("❌ DOM ready state:", document.readyState);
-    console.error("❌ Available elements with id:", 
-      Array.from(document.querySelectorAll('[id]')).map(el => el.id));
     return;
   }
-  
-  console.log("✅ Found itemList element:", itemListElement);
-  console.log("📍 Element parent:", itemListElement.parentElement);
-  
+
   itemListElement.innerHTML = "";
-  console.log("🧹 Cleared existing content");
-  
+
   if (items.length === 0) {
     const li = document.createElement("li");
     li.style.padding = "1em";
@@ -49,12 +39,10 @@ function renderItemList(items) {
     li.style.color = "#666";
     li.textContent = "📝 No items to buy yet. Click 'Add' to add items.";
     itemListElement.appendChild(li);
-    console.log("📝 Added 'no items' message");
     return;
   }
-  
-  items.forEach((item, index) => {
-    console.log(`🏷️ Rendering item ${index + 1}:`, item);
+
+  items.forEach((item) => {
     const li = document.createElement("li");
     li.classList.add("item-row");
 
@@ -72,16 +60,10 @@ function renderItemList(items) {
     li.addEventListener("click", () => markItemAsBought(item.id));
 
     itemListElement.appendChild(li);
-    console.log(`✅ Added item ${index + 1} to DOM`);
   });
-  
-  console.log("🎨 Rendering complete. Final DOM children:", itemListElement.children.length);
 }
 
 function markItemAsBought(itemId) {
-  console.log("🛒 Marking item as bought:", itemId);
-  
-  // Wait for authentication before accessing database
   waitForAuth()
     .then(() => {
       const itemRef = ref(db, `handleliste/${itemId}`);
@@ -101,51 +83,20 @@ function markItemAsBought(itemId) {
         });
       }
     })
-    .then(() => {
-      console.log("✅ Item marked as bought successfully");
-      // No need to manually refresh - real-time listener will handle it
-    })
     .catch(error => {
       console.error("❌ Error marking item as bought:", error);
     });
 }
 
 function setupRealtimeListener() {
-  console.log("🔍 Setting up real-time listener for shopping items...");
-  console.log("🔐 Waiting for authentication...");
-  
-  // Wait for authentication before accessing database
   waitForAuth()
     .then(() => {
-      console.log("✅ Authentication complete, setting up real-time listener...");
       const itemsRef = ref(db, "handleliste");
       
-      // Set up real-time listener instead of one-time get()
       unsubscribeMainListener = onValue(itemsRef, (snapshot) => {
-        console.log("� Real-time shopping list update received!");
         const data = snapshot.val() || {};
-        console.log("📊 Raw database data (first 3 items):", Object.keys(data).slice(0, 3).reduce((obj, key) => {
-          obj[key] = data[key];
-          return obj;
-        }, {}));
-        
         const allItems = Object.entries(data).map(([id, val]) => ({ id, ...val }));
-        console.log("📋 Total items found:", allItems.length);
-        
         const buyableItems = allItems.filter(item => item.Buy === true);
-        console.log("🛒 Items marked for buying (Buy === true):", buyableItems.length);
-        console.log("🛒 Buyable items details:", buyableItems);
-        
-        // Extra debugging - check each item's Buy value
-        const buyTrueCount = allItems.filter(item => item.Buy === true).length;
-        const buyFalseCount = allItems.filter(item => item.Buy === false).length;
-        const buyUndefinedCount = allItems.filter(item => item.Buy === undefined).length;
-        
-        console.log("📊 Buy value statistics:");
-        console.log("  - Buy === true:", buyTrueCount);
-        console.log("  - Buy === false:", buyFalseCount);
-        console.log("  - Buy === undefined:", buyUndefinedCount);
-        
         renderItemList(buyableItems);
       }, (error) => {
         console.error("❌ Real-time listener error:", error);
@@ -197,21 +148,13 @@ function handleFirebaseError(error) {
 window.addEventListener('beforeunload', () => {
   if (unsubscribeMainListener) {
     unsubscribeMainListener();
-    console.log("🧹 Main real-time listener cleaned up");
   }
 });
 
 window.addEventListener("DOMContentLoaded", () => {
-  console.log("🚀 ShoppingList app starting...");
-  
   applySavedFontSize();
   const person = getFromStorage("person", "Morten");
-  
-  console.log("👤 Current person:", person);
-  
   document.getElementById("personSelector").value = person;
-  
-  console.log("📡 Setting up real-time listener...");
   setupRealtimeListener();
 });
 

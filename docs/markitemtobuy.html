@@ -21,30 +21,5 @@
   </div>
 
   <script type="module" src="./js/markitemtobuy.js"></script>
-  
-  <!-- Enhanced debugging for markitemtobuy.js -->
-  <script type="module">
-    console.log("🔍 Starting markitemtobuy debug monitoring...");
-    
-    // Import and monitor the module
-    import("./js/markitemtobuy.js").then(() => {
-      console.log("✅ markitemtobuy.js module loaded successfully");
-      
-      // Monitor when items are clicked
-      setTimeout(() => {
-        const items = document.querySelectorAll('#addList .item-row');
-        console.log(`📋 Found ${items.length} items in the add list`);
-        
-        items.forEach((item, index) => {
-          item.addEventListener('click', () => {
-            console.log(`🎯 Item ${index + 1} clicked: "${item.querySelector('.item-name')?.textContent}"`);
-          });
-        });
-      }, 1000);
-      
-    }).catch(error => {
-      console.error("❌ Failed to import markitemtobuy.js:", error);
-    });
-  </script>
 </body>
 </html>
