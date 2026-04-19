@@ -27,13 +27,8 @@ function applySavedFontSize() {
   if (selector) selector.value = saved;
 }
 
-function goToAddPage() {
-  window.location.href = "add.html";
-}
-
 export {
   db, ref, set, get, update, remove, push,
   getFromStorage, saveToStorage, setToStorage,
-  updateFontSize, applySavedFontSize,
-  goToAddPage
+  updateFontSize, applySavedFontSize
 };
