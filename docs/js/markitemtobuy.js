@@ -1,7 +1,7 @@
 // js/markitemtobuy.js
 
 import { db, ref, update, onValue, waitForAuth } from "./firebase-init.js";
-import { applySavedFontSize, attachLongPress } from "./common.js";
+import { applySavedFontSize, attachLongPress, compareItemNames } from "./common.js";
 
 let unsubscribeListener = null; // Store the listener to clean up later
 let activeLetterButton = null;
@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       availableItems = Object.entries(data)
         .map(([id, val]) => ({ id, ...val }))
         .filter(item => item.Buy === false)
-        .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", "nb-NO", { sensitivity: "base" }));
+        .sort(compareItemNames);
 
       renderAddItems(searchInput.value);
     }, (error) => {

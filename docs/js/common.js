@@ -27,6 +27,29 @@ function applySavedFontSize() {
   if (selector) selector.value = saved;
 }
 
+function compareItemNames(a, b) {
+  const keyA = getItemSortKey(a.Name);
+  const keyB = getItemSortKey(b.Name);
+
+  if (keyA < keyB) {
+    return -1;
+  }
+
+  if (keyA > keyB) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function getItemSortKey(name) {
+  return (name || "")
+    .toLocaleUpperCase("nb-NO")
+    .replaceAll("Æ", "\uE000")
+    .replaceAll("Ø", "\uE001")
+    .replaceAll("Å", "\uE002");
+}
+
 function attachLongPress(element, { onClick, onLongPress, delay = 700, moveTolerance = 12 }) {
   let pressTimer = null;
   let startX = 0;
@@ -97,5 +120,5 @@ function attachLongPress(element, { onClick, onLongPress, delay = 700, moveToler
 export {
   db, ref, set, get, update, remove, push,
   getFromStorage, saveToStorage, setToStorage,
-  updateFontSize, applySavedFontSize, attachLongPress
+  updateFontSize, applySavedFontSize, attachLongPress, compareItemNames
 };

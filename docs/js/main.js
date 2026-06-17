@@ -6,7 +6,8 @@ import {
   applySavedFontSize,
   saveToStorage,
   updateFontSize,
-  attachLongPress
+  attachLongPress,
+  compareItemNames
 } from "./common.js";
 
 // Wait for DOM to be ready before getting elements
@@ -106,7 +107,7 @@ function setupRealtimeListener() {
         const allItems = Object.entries(data).map(([id, val]) => ({ id, ...val }));
         const buyableItems = allItems
           .filter(item => item.Buy === true)
-          .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", "nb-NO", { sensitivity: "base" }));
+          .sort(compareItemNames);
         renderItemList(buyableItems);
       }, (error) => {
         console.error("❌ Real-time listener error:", error);
