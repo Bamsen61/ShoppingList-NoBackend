@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Edit Item</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="content">
+      <h2>Rediger vare</h2>
+      <label>
+        Vare:
+        <input type="text" id="itemName" autofocus>
+      </label><br>
+      <label>
+        Butikk:
+        <input type="text" id="itemShop">
+      </label><br>
+    </div>
+
+    <div class="footer">
+      <button onclick="saveItem()">Lagre</button>
+      <button class="button-secondary" onclick="cancelEdit()">Avbryt</button>
+      <button class="button-danger" onclick="deleteItem()">Slett Vare</button>
+    </div>
+  </div>
+
+  <script type="module" src="./js/edititem.js"></script>
+</body>
+</html>

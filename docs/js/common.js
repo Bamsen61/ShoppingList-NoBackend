@@ -27,8 +27,75 @@ function applySavedFontSize() {
   if (selector) selector.value = saved;
 }
 
+function attachLongPress(element, { onClick, onLongPress, delay = 700, moveTolerance = 12 }) {
+  let pressTimer = null;
+  let startX = 0;
+  let startY = 0;
+  let longPressTriggered = false;
+  let pressCanceled = false;
+
+  function clearPressTimer() {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+    element.classList.remove("is-pressing");
+  }
+
+  element.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+
+    startX = event.clientX;
+    startY = event.clientY;
+    longPressTriggered = false;
+    pressCanceled = false;
+    element.classList.add("is-pressing");
+
+    pressTimer = window.setTimeout(() => {
+      longPressTriggered = true;
+      clearPressTimer();
+      onLongPress(event);
+    }, delay);
+  });
+
+  element.addEventListener("pointermove", (event) => {
+    const movedX = Math.abs(event.clientX - startX);
+    const movedY = Math.abs(event.clientY - startY);
+
+    if (movedX > moveTolerance || movedY > moveTolerance) {
+      pressCanceled = true;
+      clearPressTimer();
+    }
+  });
+
+  element.addEventListener("pointerup", (event) => {
+    clearPressTimer();
+
+    if (pressCanceled) {
+      return;
+    }
+
+    if (longPressTriggered) {
+      event.preventDefault();
+      return;
+    }
+
+    onClick(event);
+  });
+
+  element.addEventListener("pointercancel", clearPressTimer);
+  element.addEventListener("pointerleave", clearPressTimer);
+  element.addEventListener("contextmenu", (event) => {
+    if (longPressTriggered) {
+      event.preventDefault();
+    }
+  });
+}
+
 export {
   db, ref, set, get, update, remove, push,
   getFromStorage, saveToStorage, setToStorage,
-  updateFontSize, applySavedFontSize
+  updateFontSize, applySavedFontSize, attachLongPress
 };

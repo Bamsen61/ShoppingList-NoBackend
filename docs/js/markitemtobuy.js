@@ -1,7 +1,7 @@
 // js/markitemtobuy.js
 
 import { db, ref, update, onValue, waitForAuth } from "./firebase-init.js";
-import { applySavedFontSize } from "./common.js";
+import { applySavedFontSize, attachLongPress } from "./common.js";
 
 let unsubscribeListener = null; // Store the listener to clean up later
 let activeLetterButton = null;
@@ -98,7 +98,10 @@ function renderAddItems(items, searchTerm = "") {
 
     li.appendChild(nameSpan);
     li.appendChild(shopSpan);
-    li.addEventListener("click", () => markToBuy(item.id));
+    attachLongPress(li, {
+      onClick: () => markToBuy(item.id),
+      onLongPress: () => openEditItem(item.id)
+    });
     list.appendChild(li);
   });
 
@@ -154,6 +157,10 @@ async function markToBuy(id) {
     console.error("❌ Error details:", error.message);
     alert("Failed to mark item. Please try again.");
   }
+}
+
+function openEditItem(itemId) {
+  window.location.href = `edititem.html?id=${encodeURIComponent(itemId)}&return=markitemtobuy.html`;
 }
 
 window.showAddItemDialog = () => {

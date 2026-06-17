@@ -5,7 +5,8 @@ import {
   getFromStorage,
   applySavedFontSize,
   saveToStorage,
-  updateFontSize
+  updateFontSize,
+  attachLongPress
 } from "./common.js";
 
 // Wait for DOM to be ready before getting elements
@@ -57,7 +58,10 @@ function renderItemList(items) {
     li.appendChild(nameSpan);
     li.appendChild(shopSpan);
 
-    li.addEventListener("click", () => markItemAsBought(item.id));
+    attachLongPress(li, {
+      onClick: () => markItemAsBought(item.id),
+      onLongPress: () => openEditItem(item.id)
+    });
 
     itemListElement.appendChild(li);
   });
@@ -86,6 +90,10 @@ function markItemAsBought(itemId) {
     .catch(error => {
       console.error("❌ Error marking item as bought:", error);
     });
+}
+
+function openEditItem(itemId) {
+  window.location.href = `edititem.html?id=${encodeURIComponent(itemId)}&return=index.html`;
 }
 
 function setupRealtimeListener() {
