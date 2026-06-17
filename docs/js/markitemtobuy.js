@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       availableItems = Object.entries(data)
         .map(([id, val]) => ({ id, ...val }))
         .filter(item => item.Buy === false)
-        .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", undefined, { sensitivity: "base" }));
+        .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", "nb-NO", { sensitivity: "base" }));
 
       renderAddItems(searchInput.value);
     }, (error) => {
@@ -92,7 +92,7 @@ function renderAddItems(searchTerm = "", letterToScrollTo = null) {
       : "No items available to add.";
     list.appendChild(li);
     renderLetterNav(letterNav, letterTargets);
-    return;
+    return null;
   }
 
   displayItems.forEach((item, index) => {
@@ -126,8 +126,10 @@ function renderAddItems(searchTerm = "", letterToScrollTo = null) {
   renderLetterNav(letterNav, letterTargets);
 
   if (letterToScrollTo) {
-    scrollToLetter(letterToScrollTo, letterTargets);
+    return scrollToLetter(letterToScrollTo, letterTargets);
   }
+
+  return null;
 }
 
 // Clean up listener when page unloads
@@ -158,9 +160,9 @@ function renderLetterNav(letterNav, letterTargets) {
       const searchInput = document.getElementById("itemSearch");
       showAllItemsForSession = true;
       searchInput.value = "";
-      renderAddItems("", letter);
+      const activeLetter = renderAddItems("", letter) || letter;
 
-      const selectedButton = [...letterNav.children].find((navButton) => navButton.textContent === letter);
+      const selectedButton = [...letterNav.children].find((navButton) => navButton.textContent === activeLetter);
       if (selectedButton) {
         setActiveLetterButton(selectedButton);
       }
@@ -180,12 +182,40 @@ function setActiveLetterButton(button) {
 }
 
 function scrollToLetter(letter, letterTargets) {
-  const targetId = letterTargets.get(letter);
+  const targetLetter = getTargetLetter(letter, letterTargets);
+  const targetId = targetLetter ? letterTargets.get(targetLetter) : null;
   const targetElement = targetId ? document.getElementById(targetId) : null;
 
   if (targetElement) {
     targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    return targetLetter;
   }
+
+  return null;
+}
+
+function getTargetLetter(letter, letterTargets) {
+  if (letterTargets.has(letter)) {
+    return letter;
+  }
+
+  const currentIndex = FIXED_LETTER_NAV.indexOf(letter);
+
+  for (let index = currentIndex + 1; index < FIXED_LETTER_NAV.length; index += 1) {
+    const laterLetter = FIXED_LETTER_NAV[index];
+    if (letterTargets.has(laterLetter)) {
+      return laterLetter;
+    }
+  }
+
+  for (let index = currentIndex - 1; index >= 0; index -= 1) {
+    const previousLetter = FIXED_LETTER_NAV[index];
+    if (letterTargets.has(previousLetter)) {
+      return previousLetter;
+    }
+  }
+
+  return null;
 }
 
 function wasBoughtRecently(item) {

@@ -106,7 +106,7 @@ function setupRealtimeListener() {
         const allItems = Object.entries(data).map(([id, val]) => ({ id, ...val }));
         const buyableItems = allItems
           .filter(item => item.Buy === true)
-          .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", undefined, { sensitivity: "base" }));
+          .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", "nb-NO", { sensitivity: "base" }));
         renderItemList(buyableItems);
       }, (error) => {
         console.error("❌ Real-time listener error:", error);
