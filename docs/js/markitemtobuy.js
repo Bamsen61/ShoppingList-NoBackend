@@ -6,13 +6,28 @@ import { applySavedFontSize, attachLongPress } from "./common.js";
 let unsubscribeListener = null; // Store the listener to clean up later
 let activeLetterButton = null;
 let availableItems = [];
+let showAllItemsForSession = false;
+
+// ============================================================
+// CHANGE THIS NUMBER TO ADJUST HOW MANY DAYS ARE SHOWN FIRST.
+// The "Legg til" list starts by showing only items bought within
+// this many days. "Vis alle" and the letter sidebar show all items.
+// ============================================================
+const RECENTLY_BOUGHT_DAYS_LIMIT = 50;
+
+const FIXED_LETTER_NAV = [
+  "0",
+  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+  "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+  "Æ", "Ø", "Å"
+];
 
 document.addEventListener("DOMContentLoaded", async () => {
   applySavedFontSize();
   const searchInput = document.getElementById("itemSearch");
 
   searchInput.addEventListener("input", () => {
-    renderAddItems(availableItems, searchInput.value);
+    renderAddItems(searchInput.value);
   });
 
   try {
@@ -26,7 +41,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         .filter(item => item.Buy === false)
         .sort((a, b) => (a.Name || "").localeCompare(b.Name || "", undefined, { sensitivity: "base" }));
 
-      renderAddItems(availableItems, searchInput.value);
+      renderAddItems(searchInput.value);
     }, (error) => {
       console.error("❌ Real-time listener error:", error);
     });
@@ -45,14 +60,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-function renderAddItems(items, searchTerm = "") {
+function renderAddItems(searchTerm = "", letterToScrollTo = null) {
   const list = document.getElementById("addList");
   const letterNav = document.getElementById("letterNav");
   list.innerHTML = "";
   letterNav.innerHTML = "";
 
   const normalizedSearch = searchTerm.trim().toLocaleLowerCase("nb-NO");
-  const displayItems = items.filter((item) => {
+  const itemsForCurrentView = showAllItemsForSession
+    ? availableItems
+    : availableItems.filter(wasBoughtRecently);
+
+  const displayItems = itemsForCurrentView.filter((item) => {
     if (!normalizedSearch) {
       return true;
     }
@@ -62,7 +81,6 @@ function renderAddItems(items, searchTerm = "") {
   });
 
   const letterTargets = new Map();
-  const lettersInUse = [];
 
   if (displayItems.length === 0) {
     const li = document.createElement("li");
@@ -73,6 +91,7 @@ function renderAddItems(items, searchTerm = "") {
       ? "No matching items found."
       : "No items available to add.";
     list.appendChild(li);
+    renderLetterNav(letterNav, letterTargets);
     return;
   }
 
@@ -93,7 +112,6 @@ function renderAddItems(items, searchTerm = "") {
       li.id = `letter-target-${index}`;
       li.classList.add("letter-target");
       letterTargets.set(itemLetter, li.id);
-      lettersInUse.push(itemLetter);
     }
 
     li.appendChild(nameSpan);
@@ -105,7 +123,11 @@ function renderAddItems(items, searchTerm = "") {
     list.appendChild(li);
   });
 
-  renderLetterNav(letterNav, lettersInUse, letterTargets);
+  renderLetterNav(letterNav, letterTargets);
+
+  if (letterToScrollTo) {
+    scrollToLetter(letterToScrollTo, letterTargets);
+  }
 }
 
 // Clean up listener when page unloads
@@ -117,34 +139,88 @@ window.addEventListener('beforeunload', () => {
 
 function getItemLetter(name) {
   const firstCharacter = (name || "").trim().charAt(0);
-  return (firstCharacter || "#").toLocaleUpperCase("nb-NO");
+  const normalizedCharacter = (firstCharacter || "0").toLocaleUpperCase("nb-NO");
+  return FIXED_LETTER_NAV.includes(normalizedCharacter) && normalizedCharacter !== "0"
+    ? normalizedCharacter
+    : "0";
 }
 
-function renderLetterNav(letterNav, lettersInUse, letterTargets) {
+function renderLetterNav(letterNav, letterTargets) {
   activeLetterButton = null;
 
-  lettersInUse.forEach((letter) => {
+  FIXED_LETTER_NAV.forEach((letter) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "letter-nav-button";
     button.textContent = letter;
     button.setAttribute("aria-label", `Jump to items starting with ${letter}`);
     button.addEventListener("click", () => {
-      const targetId = letterTargets.get(letter);
-      const targetElement = targetId ? document.getElementById(targetId) : null;
+      const searchInput = document.getElementById("itemSearch");
+      showAllItemsForSession = true;
+      searchInput.value = "";
+      renderAddItems("", letter);
 
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-        if (activeLetterButton) {
-          activeLetterButton.classList.remove("is-active");
-        }
-        button.classList.add("is-active");
-        activeLetterButton = button;
+      const selectedButton = [...letterNav.children].find((navButton) => navButton.textContent === letter);
+      if (selectedButton) {
+        setActiveLetterButton(selectedButton);
       }
     });
 
     letterNav.appendChild(button);
   });
+}
+
+function setActiveLetterButton(button) {
+  if (activeLetterButton) {
+    activeLetterButton.classList.remove("is-active");
+  }
+
+  button.classList.add("is-active");
+  activeLetterButton = button;
+}
+
+function scrollToLetter(letter, letterTargets) {
+  const targetId = letterTargets.get(letter);
+  const targetElement = targetId ? document.getElementById(targetId) : null;
+
+  if (targetElement) {
+    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function wasBoughtRecently(item) {
+  const latestBoughtDate = getLatestBoughtDate(item.BoughtDate);
+
+  if (!latestBoughtDate) {
+    return false;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const cutoffDate = new Date(today);
+  cutoffDate.setDate(today.getDate() - RECENTLY_BOUGHT_DAYS_LIMIT);
+
+  return latestBoughtDate >= cutoffDate;
+}
+
+function getLatestBoughtDate(boughtDates) {
+  if (!Array.isArray(boughtDates) || boughtDates.length === 0) {
+    return null;
+  }
+
+  return boughtDates.reduce((latestDate, dateText) => {
+    const date = new Date(`${dateText}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+      return latestDate;
+    }
+
+    if (!latestDate || date > latestDate) {
+      return date;
+    }
+
+    return latestDate;
+  }, null);
 }
 
 async function markToBuy(id) {
@@ -165,6 +241,13 @@ function openEditItem(itemId) {
 
 window.showAddItemDialog = () => {
   window.location.href = "additemtodatabase.html";
+};
+
+window.showAllItems = () => {
+  const searchInput = document.getElementById("itemSearch");
+  showAllItemsForSession = true;
+  searchInput.value = "";
+  renderAddItems("");
 };
 
 window.goToShopPage = () => {
