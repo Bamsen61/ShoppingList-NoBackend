@@ -1,14 +1,19 @@
 // js/edititem.js
 
 import { db, ref, get, update, remove, waitForAuth } from "./firebase-init.js";
-import { applySavedFontSize } from "./common.js";
+import { applySavedFontSize, navigateWithoutHistory, returnToMainPage } from "./common.js";
 
 const params = new URLSearchParams(window.location.search);
 const itemId = params.get("id");
 const returnPage = params.get("return") || "index.html";
 
 function goBack() {
-  window.location.href = returnPage;
+  if (returnPage === "index.html") {
+    returnToMainPage();
+    return;
+  }
+
+  navigateWithoutHistory(returnPage);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {

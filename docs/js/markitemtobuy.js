@@ -1,7 +1,13 @@
 // js/markitemtobuy.js
 
 import { db, ref, update, onValue, waitForAuth } from "./firebase-init.js";
-import { applySavedFontSize, attachLongPress, compareItemNames } from "./common.js";
+import {
+  applySavedFontSize,
+  attachLongPress,
+  compareItemNames,
+  navigateWithoutHistory,
+  returnToMainPage
+} from "./common.js";
 
 let unsubscribeListener = null; // Store the listener to clean up later
 let activeLetterButton = null;
@@ -267,11 +273,11 @@ async function markToBuy(id) {
 }
 
 function openEditItem(itemId) {
-  window.location.href = `edititem.html?id=${encodeURIComponent(itemId)}&return=markitemtobuy.html`;
+  navigateWithoutHistory(`edititem.html?id=${encodeURIComponent(itemId)}&return=markitemtobuy.html`);
 }
 
 window.showAddItemDialog = () => {
-  window.location.href = "additemtodatabase.html";
+  navigateWithoutHistory("additemtodatabase.html");
 };
 
 window.showAllItems = () => {
@@ -282,5 +288,5 @@ window.showAllItems = () => {
 };
 
 window.goToShopPage = () => {
-  window.location.href = "index.html";
+  returnToMainPage();
 };

@@ -50,6 +50,23 @@ function getItemSortKey(name) {
     .replaceAll("Å", "\uE002");
 }
 
+function navigateWithoutHistory(url) {
+  window.location.replace(url);
+}
+
+function returnToMainPage() {
+  if (document.referrer) {
+    const referrerUrl = new URL(document.referrer);
+
+    if (referrerUrl.origin === window.location.origin && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+  }
+
+  navigateWithoutHistory("index.html");
+}
+
 function attachLongPress(element, { onClick, onLongPress, delay = 700, moveTolerance = 12 }) {
   let pressTimer = null;
   let startX = 0;
@@ -120,5 +137,6 @@ function attachLongPress(element, { onClick, onLongPress, delay = 700, moveToler
 export {
   db, ref, set, get, update, remove, push,
   getFromStorage, saveToStorage, setToStorage,
-  updateFontSize, applySavedFontSize, attachLongPress, compareItemNames
+  updateFontSize, applySavedFontSize, attachLongPress, compareItemNames,
+  navigateWithoutHistory, returnToMainPage
 };

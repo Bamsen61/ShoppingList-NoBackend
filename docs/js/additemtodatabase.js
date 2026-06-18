@@ -1,7 +1,7 @@
 // js/additemtodatabase.js
 
 import { db, push, ref, waitForAuth } from "./firebase-init.js";
-import { applySavedFontSize, getFromStorage } from "./common.js";
+import { applySavedFontSize, getFromStorage, returnToMainPage } from "./common.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   applySavedFontSize();
@@ -32,7 +32,7 @@ window.submitItem = async function () {
     };
 
     await push(ref(db, "handleliste"), item);
-    window.location.href = "index.html";
+    returnToMainPage();
   } catch (error) {
     console.error("❌ Error adding item:", error);
     
@@ -47,5 +47,5 @@ window.submitItem = async function () {
 };
 
 window.cancelAdd = function () {
-  window.location.href = "index.html";
+  returnToMainPage();
 };
