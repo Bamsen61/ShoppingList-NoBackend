@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const searchInput = document.getElementById("itemSearch");
 
   searchInput.addEventListener("input", () => {
+    showAllItemsForSession = true;
     renderAddItems(searchInput.value);
   });
 

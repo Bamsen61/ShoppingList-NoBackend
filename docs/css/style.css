@@ -184,7 +184,12 @@ body {
 
 /* Form styling */
 label { display: block; margin-bottom: 1em; }
-input[type="text"] { width: 100%; padding: 0.5em; margin-top: 0.25em; }
+input[type="text"] {
+  width: 100%;
+  padding: 0.5em;
+  margin-top: 0.25em;
+  font: inherit;
+}
 
 button { 
   padding: 0.5em 0.9em; 
