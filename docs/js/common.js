@@ -31,6 +31,20 @@ function compareItemNames(a, b) {
   const keyA = getItemSortKey(a.Name);
   const keyB = getItemSortKey(b.Name);
 
+  return compareSortKeys(keyA, keyB);
+}
+
+function compareItemsByShopThenName(a, b) {
+  const shopComparison = compareSortKeys(getItemSortKey(a.Shop), getItemSortKey(b.Shop));
+
+  if (shopComparison !== 0) {
+    return shopComparison;
+  }
+
+  return compareItemNames(a, b);
+}
+
+function compareSortKeys(keyA, keyB) {
   if (keyA < keyB) {
     return -1;
   }
@@ -137,6 +151,7 @@ function attachLongPress(element, { onClick, onLongPress, delay = 700, moveToler
 export {
   db, ref, set, get, update, remove, push,
   getFromStorage, saveToStorage, setToStorage,
-  updateFontSize, applySavedFontSize, attachLongPress, compareItemNames,
+  updateFontSize, applySavedFontSize, attachLongPress,
+  compareItemNames, compareItemsByShopThenName,
   navigateWithoutHistory, returnToMainPage
 };

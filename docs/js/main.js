@@ -7,7 +7,7 @@ import {
   saveToStorage,
   updateFontSize,
   attachLongPress,
-  compareItemNames
+  compareItemsByShopThenName
 } from "./common.js";
 
 // Wait for DOM to be ready before getting elements
@@ -107,7 +107,7 @@ function setupRealtimeListener() {
         const allItems = Object.entries(data).map(([id, val]) => ({ id, ...val }));
         const buyableItems = allItems
           .filter(item => item.Buy === true)
-          .sort(compareItemNames);
+          .sort(compareItemsByShopThenName);
         renderItemList(buyableItems);
       }, (error) => {
         console.error("❌ Real-time listener error:", error);
