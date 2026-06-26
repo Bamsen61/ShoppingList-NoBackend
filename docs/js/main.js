@@ -98,6 +98,8 @@ function openEditItem(itemId) {
 }
 
 function setupRealtimeListener() {
+  cleanupRealtimeListener();
+
   waitForAuth()
     .then(() => {
       const itemsRef = ref(db, "handleliste");
@@ -118,6 +120,17 @@ function setupRealtimeListener() {
       console.error("❌ Authentication error:", error);
       handleFirebaseError(error);
     });
+}
+
+function cleanupRealtimeListener() {
+  if (unsubscribeMainListener) {
+    unsubscribeMainListener();
+    unsubscribeMainListener = null;
+  }
+}
+
+function refreshMainList() {
+  setupRealtimeListener();
 }
 
 function handleFirebaseError(error) {
@@ -155,10 +168,14 @@ function handleFirebaseError(error) {
   }
 }
 
-// Clean up listener when page unloads
-window.addEventListener('beforeunload', () => {
-  if (unsubscribeMainListener) {
-    unsubscribeMainListener();
+// Clean up listener when leaving or caching the page.
+window.addEventListener("pagehide", () => {
+  cleanupRealtimeListener();
+});
+
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    refreshMainList();
   }
 });
 
