@@ -142,7 +142,7 @@
     </div>
 
     <script type="module">
-        import { signInUser, auth } from './js/firebase-init.js';
+        import { signInUser, auth, isAuthorizedUser } from './js/firebase-init.js';
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
         const loginForm = document.getElementById('loginForm');
@@ -152,7 +152,7 @@
 
         // Check if user is already authenticated
         onAuthStateChanged(auth, (user) => {
-            if (user) {
+            if (isAuthorizedUser(user)) {
                 console.log("✅ User already authenticated, redirecting...");
                 // Add a small delay to prevent redirect loops
                 setTimeout(() => {
@@ -192,6 +192,9 @@
                         break;
                     case 'auth/user-disabled':
                         errorText = '❌ This account has been disabled.';
+                        break;
+                    case 'auth/unauthorized-user':
+                        errorText = '❌ This account is not authorized for Handleliste.';
                         break;
                     case 'auth/too-many-requests':
                         errorText = '❌ Too many failed attempts. Please try again later.';

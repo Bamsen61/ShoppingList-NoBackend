@@ -19,6 +19,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
+const authorizedUids = new Set([
+  "ZDq6ZGvDVDafX8BVlWGRhBoSn9X2",
+  "fmVOzYiAtsOUNnUE33VZbwHR0SG3"
+]);
+
+function isAuthorizedUser(user) {
+  return Boolean(user && authorizedUids.has(user.uid));
+}
 
 // Set authentication persistence to LOCAL (stays logged in forever until manual logout)
 setPersistence(auth, browserLocalPersistence)
@@ -66,11 +74,12 @@ function waitForAuth() {
       unsubscribe(); // Stop listening once we get the first result
       clearTimeout(timeoutId);
       
-      if (user) {
+      if (isAuthorizedUser(user)) {
         console.log("✅ User authenticated:", user.email);
         isAuthenticated = true;
         resolve();
       } else {
+        if (user) signOut(auth).catch(console.error);
         console.log("❌ No authenticated user, redirecting to login...");
         isAuthenticated = false;
         // Add delay to prevent infinite loops
@@ -101,6 +110,12 @@ function waitForAuth() {
 async function signInUser(email, password) {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    if (!isAuthorizedUser(userCredential.user)) {
+      await signOut(auth);
+      const error = new Error("This account is not authorized for Handleliste.");
+      error.code = "auth/unauthorized-user";
+      throw error;
+    }
     console.log("✅ User signed in:", userCredential.user.email);
     isAuthenticated = true;
     return userCredential.user;
@@ -125,13 +140,14 @@ async function signOutUser() {
 // Listen for auth state changes (for UI updates)
 onAuthStateChanged(auth, (user) => {
   authStateLoaded = true;
-  if (user) {
+  if (isAuthorizedUser(user)) {
     console.log("👤 User authenticated:", user.email);
     isAuthenticated = true;
   } else {
+    if (user) signOut(auth).catch(console.error);
     console.log("👤 User not authenticated");
     isAuthenticated = false;
   }
 });
 
-export { db, ref, get, set, push, update, remove, child, onValue, auth, waitForAuth, signInUser, signOutUser };
+export { db, ref, get, set, push, update, remove, child, onValue, auth, waitForAuth, signInUser, signOutUser, isAuthorizedUser };
