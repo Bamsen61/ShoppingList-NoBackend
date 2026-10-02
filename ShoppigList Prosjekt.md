@@ -1,11 +1,10 @@
 # ShoppingList – prosjektbeskrivelse og driftsgrunnlag
 
-Dokumentversjon: 1
+Dokumentversjon: 3
 
 Sist kontrollert mot lokal kode: 2026-10-01
 
-Dokumentet beskriver eksisterende kode og lokale konfigurasjonsfiler.  
-Produksjonsnettstedet, aktive Firebase-regler, brukerkontoer og innstillinger i Firebase/Google Cloud er ikke kontrollert. **Må Sjekkes** markerer forhold som krever vurdering.
+Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte krav til senere endringer. Krav merket som planlagt er ikke implementert. Opplysninger om Firebase-kontoer og aksepterte risikoer er bekreftet av brukeren; produksjonsnettstedet og aktive Firebase-innstillinger er ikke kontrollert av Codex. **Må Sjekkes** markerer gjenstående kontrollpunkter.
 
 ## Instruksjoner Codex ChatGPT skal følge
 
@@ -14,11 +13,13 @@ Produksjonsnettstedet, aktive Firebase-regler, brukerkontoer og innstillinger i 
 * Alle prosjektendringer skal gjøres direkte i filene under `D:\GIT\ShoppingList-NoBackend\`.
 * Ved hver endringsrunde i prosjektfilen økes dokumentversjonen med 1. Oppdater kontrolldatoen når dokumentet kontrolleres mot koden.
 * Ved applikasjonsendringer skal appversjonen økes med 1 og relevante versjonsreferanser i dokumentasjon og tester oppdateres. Appen skal ha et versjonsnummer i koden. For å spare plass vises ikke versjon i GUI.
+* Dokumentendringer alene øker bare dokumentversjonen. Fremtidige oppgaver i denne filen skal utføres når den aktuelle kodeendringen bestilles; de utvider ikke omfanget av en oppgave som bare gjelder prosjektfilen.
 * Ikke list lange endringer i chat.
 * Hvis noe må testes av brukeren, be om kun én test av gangen og vent på svar.
 * Når jeg bruker "Du", "Deg" eller lignende, refererer dette til Codex ChatGPT.
 * Handleliste bruker Firebase-prosjektet `handleliste-3bdaa`. Endringer må ikke ødelegge data, regler eller innlogging for `/handleliste` eller andre apper som deler databasen.
-* Skill mellom implementert funksjonalitet og planer. PWA er neste planlagte endring, ikke implementert funksjonalitet.
+* Skill mellom implementert funksjonalitet og planer. Neste kodeendring er en klargjøringsrunde. Deretter følger PWA med internett påkrevd; offline-støtte og egen cache-strategi kommer senere.
+* Automatiserte tester skal bruke isolerte testdata og ikke skrive til produksjonsdatabasen. Hold manuelle tester så få som mulig.
 * Kontroller endringsomfang med `git diff`. Ikke endre andre filer enn oppgaven omfatter eller ta med uvedkommende lokale endringer i commit.
 
 ## Status
@@ -32,6 +33,7 @@ Produksjonsnettstedet, aktive Firebase-regler, brukerkontoer og innstillinger i 
 * Målplattform: Android Chrome. Responsiv layout finnes; øvrig nettleserkompatibilitet er ikke bekreftet.
 * Ingen egen backend kjøres i repoet. Firebase Authentication og Realtime Database brukes direkte fra nettleseren.
 * PWA, service worker og egen offline-cache er ikke implementert.
+* Appversjon er ikke implementert. Et tomt versjonsfelt i HTML og `configuration_version` i `google-services.json` er ikke appversjoner.
 
 ## Formål
 
@@ -73,7 +75,7 @@ Ingen egen global butikkinnstilling, angrefunksjon for kjøp eller deduplisering
 * Registrering og password reset er ikke implementert i appen.
 * Logout-funksjonen finnes, men knappen i `index.html` er kommentert ut.
 
-UID-ene tilhører fortsatt riktige Firebase-kontoer. Personvelgeren dokumenterer ikke hvem som er innlogget; begge brukere kan velge begge navn.
+Brukeren har bekreftet at UID-ene fortsatt tilhører riktige Firebase-kontoer. Personvelgeren dokumenterer ikke hvem som er innlogget; begge brukere kan velge begge navn.
 
 Logout skal ikke være tilgjengelig i vanlig brukergrensesnitt.
 
@@ -89,11 +91,11 @@ Lokal regelfil: `database.rules.json`. `firebase.json` peker på denne, og `.fir
 * Ingen `$other`-regel avviser ekstra felt under handlelistevarene. Sletting er tillatt for autoriserte brukere.
 * Filen inneholder også regler for `/hvoreralle`, inkludert `Accuracy`. Handlelistekoden bruker ikke denne stien eller dette feltet.
 
-Rottilgangen gjelder også underliggende stier. De to UID-ene får dermed tilgang til `/hvoreralle`; email-regelen der begrenser ikke tilgang som allerede er gitt ved roten. Dette er OK..
+Rottilgangen gjelder også underliggende stier. De to UID-ene får dermed tilgang til `/hvoreralle`; email-regelen der begrenser ikke tilgang som allerede er gitt ved roten. Brukeren har akseptert denne tilgangen; ingen regelendring er planlagt.
 
-Dokumentmalen omtalte to regelkopier, men oppga samme lokale sti for begge. `/hvoreralle` tyder på delt databasebruk. Repo HvorErAlle er ikke lengre aktivt.
+Brukeren har bekreftet at repoet HvorErAlle ikke lenger er aktivt. Det er ikke etablert noe krav om synkronisering med dette repoet. Eksisterende `/hvoreralle`-data og regler beholdes; et inaktivt repo er ikke en instruksjon om å slette dem.
 
-Lokale regler beviser ikke hvilke regler som er aktive i Firebase. Sammenlign med aktive regler før neste regelendring.
+Lokale regler beviser ikke hvilke regler som er aktive i Firebase. **Må Sjekkes**: Sammenlign med aktive regler før en senere regelendring eller regeldeploy. Dette er ikke et krav om regeldeploy i klargjørings- eller PWA-runden.
 
 GitHub Actions publiserer nettstedet, ikke reglene. Ved en senere avtalt regelendring, med Firebase CLI installert og innlogget, publiseres den komplette regelfilen fra repo-roten:
 
@@ -111,7 +113,7 @@ Hver vare ligger under `/handleliste/<Key>`. Nye nøkler genereres med Firebase 
 | Felt | Type brukt i appen | Innhold og oppførsel |
 |---|---|---|
 | `AddedBy` | String | Valgt person ved opprettelse; standard `Morten` hvis lokalt valg mangler. |
-| `BoughtBy` | String | Valgt person ved siste kjøp; tom string ved opprettelse. Kjøpsfunksjonen skal bruke `Morten` hvis personvalget mangler. |
+| `BoughtBy` | String | Valgt person ved siste kjøp; tom string ved opprettelse. Dagens kjøpsfunksjon bruker `Anonymous` hvis personvalget mangler. Planlagt krav: bruk `Morten` som standard. |
 | `BoughtDate` | Array av strings | Inntil ti siste registrerte kjøpsdatoer, nyeste registrering først, i format `YYYY-MM-DD`. Tom array ved opprettelse; koden håndterer manglende felt som tom historikk. |
 | `Buy` | Boolean | `true`: på handlelisten; `false`: tilgjengelig under "Legg til". Ny vare får `true`. |
 | `BuyNumber` | Number | Antall registrerte kjøp; starter på 0 og økes med 1. Reglene krever ikke heltall. |
@@ -138,9 +140,9 @@ Eksempel på format, ikke en kontrollert produksjonsrecord:
 }
 ```
 
-Kjøpsdato bruker `toISOString()` og dermed UTC-dato. 50-dagersfilteret bruker lokal midnatt. Kjøp skal bruke norsk lokal dato.
+Kjøpsdato bruker nå `toISOString()` og dermed UTC-dato. 50-dagersfilteret bruker nettleserens lokale midnatt. Planlagt krav: nye kjøp skal registreres med norsk lokal dato (`Europe/Oslo`), og 50-dagersfilteret skal bruke samme datogrunnlag. Formatet forblir `YYYY-MM-DD`; eksisterende kjøpshistorikk skal ikke omskrives.
 
-Kjøpsregistrering bruker `get()` etterfulgt av `update()`, uten transaction. Samtidige kjøp av samme vare kan overskrive teller eller historikk. Dette er OK.
+Kjøpsregistrering bruker `get()` etterfulgt av `update()`, uten transaction. Samtidige kjøp av samme vare kan overskrive teller eller historikk. Brukeren har akseptert dette; innføring av transaction er ikke planlagt.
 
 ## Lokal lagring og navigasjon
 
@@ -150,21 +152,23 @@ Kjøpsregistrering bruker `get()` etterfulgt av `update()`, uten transaction. Sa
 * Redigering bruker URL-parametrene `id` og `return`. Normal retur er `index.html` eller `markitemtobuy.html`.
 * `returnToMainPage()` bruker historikken ved referrer med samme origin og tilgjengelig historikk; ellers `location.replace("index.html")`. Flere andre overganger bruker også `location.replace()`.
 
-Returfunksjonen skal gå til forsiden.
+Planlagt krav: `returnToMainPage()` skal alltid gå til `index.html`, også etter opprettelse/avbryt av ny vare og ved «Tilbake» fra «Legg til». Dette er ikke implementert; funksjonen bruker fortsatt nettleserhistorikken. Den separate `return=markitemtobuy.html`-returen fra redigering beholdes. Androids Back-knapp må fortsatt kontrolleres ved navigasjonsendringen.
 
 ## PWA og cache – planlagt
 
 PWA er ikke implementert. Nåværende app har ingen manifestfil, service worker, service worker-registrering eller PWA-ikoner. `site/manifest.webmanifest` og `site/sw.js` fra dokumentmalen beskriver ikke dette repoet.
 
-Neste planlagte endring er PWA. Før implementering må følgende bestemmes:
+Brukeren har bestemt at klargjøringsrunden gjennomføres først. Første PWA-runde gir installasjon på Android Chrome og åpning i eget appvindu, med internett påkrevd. Offline-støtte og egen cache-strategi utsettes.
 
-* Manifest, ikoner og service worker plasseres under `docs/` for publisering.
+Før PWA-implementeringen må følgende konkretiseres:
+
+* Manifest, ikoner og en eventuell service worker plasseres under `docs/` for publisering.
 * `start_url` og `scope` tilpasses GitHub Pages-stien `/ShoppingList-NoBackend/`.
 * Navn, ikoner, `display`, `theme_color` og `background_color` velges.
-* Cache- og oppdateringsstrategi for HTML, CSS, JavaScript og Firebase SDK-importer defineres.
-* Offline-oppførsel og feilmeldinger avklares; oppdateringer må bevare innlogging og databaseoperasjoner.
+* Første PWA-runde skal ikke legge til egen ressurscache eller kø for databaseoperasjoner uten internett. Behovet for service worker vurderes ut fra installasjonskravene ved implementering; dagens kode har ingen.
+* Installasjon og vanlig bruk med internett testes på Android Chrome. Innlogging, realtime og navigasjon må fungere både i nettleseren og i appvinduet.
 
-Offline-støtte og cache-strategi kommer i en senere oppdatering.
+**Må Sjekkes**: Appnavn, ikonmotiv og farger er ikke valgt. Avklar disse før PWA-implementering. Offline-støtte, cache-strategi og tilhørende oppdateringsflyt kommer i en senere oppdatering.
 
 ## Filstruktur
 
@@ -205,11 +209,11 @@ Offline-støtte og cache-strategi kommer i en senere oppdatering.
 
 ## Dokumentasjonsavvik og sikkerhetspunkter
 
-* `SECURITY_DEPLOYMENT.md` inneholder et passord i klartekst. Dette er en akseptert risiko.
-* `FIREBASE_SETUP.md` og `DEPLOY_RULES.md` viser offentlig database-tilgang og anonymous authentication. `SECURITY_DEPLOYMENT.md` viser bredere tilgang enn UID-allowlisten og feil datatype for `BoughtDate`. Veiledningene må revideres før bruk. Dette endres av deg ved første oppdatering.
-* `Readme.md` hevder miljøvariabelstøtte og verifiserte API key-restriksjoner. Koden leser ikke miljøvariabler. Restrictions og authorized domains må bekreftes i Firebase/Google Cloud, inkludert produksjonsorigin og lokale testorigins. Du skal endre `Readme.md` så den stemmer med koden.
-* `TESTING.md` beskriver "Loading shop...", global butikkredigering, `shop` i localStorage og eldre knappenavn. Dette finnes ikke i dagens app. Firebase-veiledningene viser også til testsider som ikke finnes. Du skal oppdatere `Testing.md` så den stemmer med koden.
-* Alt i `docs/`, inkludert diagnosesider, `google-services.json` og `CountDown.html`, publiseres. Avklar om disse filene fortsatt skal ligge i produksjon. Anonymous-testsidene beskriver en annen tilgangsmodell enn appen. Svar: Kun det som er nødvendig skal ligge i produksjon og publiseres.
+* `SECURITY_DEPLOYMENT.md` inneholder et passord i klartekst. Brukeren har akseptert risikoen. Dette punktet gjenåpnes ikke som en avklaring; passordet gjentas ikke i prosjektfilen.
+* `FIREBASE_SETUP.md` og `DEPLOY_RULES.md` viser offentlig database-tilgang og anonymous authentication. `SECURITY_DEPLOYMENT.md` viser bredere tilgang enn UID-allowlisten og feil datatype for `BoughtDate`. Planlagt: revider veiledningene i klargjøringsrunden mot gjeldende kode og lokale regler; ikke deploy regler som del av dokumentasjonsrettingen.
+* `Readme.md` hevder miljøvariabelstøtte og verifiserte API key-restriksjoner. Planlagt: korriger dokumentet i klargjøringsrunden. **Må Sjekkes**: Faktiske restrictions og authorized domains krever kontroll i Firebase/Google Cloud ved relevante auth-/konfigurasjonsendringer. Ikke beskriv dem som verifisert uten slik kontroll.
+* `TESTING.md` beskriver "Loading shop...", global butikkredigering, `shop` i localStorage og eldre knappenavn. Firebase-veiledningene viser også til testsider som ikke finnes. Planlagt: oppdater testguiden mot den ferdige koden og det nye testregimet. Bruk eksisterende filnavn `TESTING.md`; ikke opprett `Testing.md` som en ekstra fil.
+* Alt i `docs/` publiseres fortsatt. Planlagt: bare nødvendige appfiler skal være i publiseringsmappen. Flytt diagnosesidene, `google-services.json` og `CountDown.html` ut av `docs/` til en upublisert mappe, og rett relevante lenker. Bevar filene i repoet; det er ikke behov for å slette dem for å utelate dem fra produksjon. Ingen av dem er lastet fra den ordinære appflyten.
 
 ## Lokal kjøring og verifikasjon
 
@@ -233,7 +237,35 @@ Ved fremtidige kodeendringer velges relevante kontroller:
 
 Dette er en referanseliste. Be brukeren om én konkret test av gangen og vent på svar. `npm test` og `npm run check` finnes ikke i repoet.
 
-Oppdatering: Manuelle tester skal være så få som mulig. Opprett automatisk testregime som ikke endrer eksisterende items i databasen-
+### Planlagt automatisert testregime
+
+Ingen automatiserte tester er implementert ennå. Klargjøringsrunden skal etablere et kjørbart testregime med isolerte fixtures og en mock av Firebase for tester som ellers ville skrevet til databasen. Testkjøring skal ikke bruke produksjonskontoer eller gjøre write-operasjoner mot produksjonsdatabasen, heller ikke opprette og deretter slette testvarer der.
+
+Prioriter tester for standardperson, datoer rundt norsk midnatt/sommertid, 50-dagersfilter, sortering, navigasjon og vareoperasjonene. Kontroller også at publiseringsmappen bare inneholder appens nødvendige filer. Dokumenter valgt verktøy og den faktiske testkommandoen i `TESTING.md` og prosjektfilen når oppsettet finnes.
+
+Mocks bekrefter ikke aktive Firebase-regler eller innlogging mot Firebase. Bruk en lokal emulator dersom automatisert integrasjonstest av disse blir nødvendig. Begrens manuell kontroll til det automatiseringen ikke dekker, særlig ekte auth/realtime og Androids Back-knapp/PWA-installasjon.
+
+## Neste kodeendringer – vedtatt rekkefølge
+
+Denne dokumentoppdateringen gjennomfører ingen av punktene nedenfor.
+
+### 1. Klargjøring før PWA
+
+* Innfør ett sentralt appversjonsnummer i koden, uten visning i GUI. Brukeren har fastsatt første appversjon til `1`; deretter økes den med 1 per kodeendringsrunde. Appversjonen er uavhengig av dokumentversjonen.
+* Endre standardverdien for `BoughtBy` fra `Anonymous` til `Morten`.
+* Bruk norsk lokal dato ved nye kjøp og samme datogrunnlag i 50-dagersfilteret. Behold eksisterende historikk og datoformat.
+* La `returnToMainPage()` gå direkte til forsiden.
+* Revider eksisterende veiledninger og testdokumentasjon. Behold UID-allowlist, skjult logout og akseptert håndtering av samtidige kjøp.
+* Flytt filer som ikke trengs av appen ut av `docs/`, uten å slette dem.
+* Etabler automatiserte tester med isolerte data og verifiser at de ikke skriver til produksjonsdatabasen.
+
+Klargjøringen er ferdig når relevante tester passerer, dokumentasjonen beskriver faktisk kode og publiseringsmappen er kontrollert. Ingen endring i datamodell, aktive Firebase-regler eller eksisterende varer inngår i denne runden.
+
+### 2. PWA med internett påkrevd
+
+* Avklar appnavn, ikoner og farger, og implementer manifest/installasjon med riktig GitHub Pages-sti.
+* Kontroller installasjon og oppstart i eget appvindu på Android Chrome samt eksisterende login, realtime og navigasjon.
+* Øk appversjonen og oppdater dokumentasjonen. Offline-støtte og egen cache-strategi inngår i en senere oppdatering.
 
 ## Publisering og tilbakeføring
 
@@ -261,4 +293,6 @@ Ved tilbakeføring reverseres den konkrete feilaktige committen med `git revert`
 
 ## Endringslogg for prosjektfilen
 
+* **2026-10-01 – dokumentversjon 3:** Første appversjon fastsatt til `1` av brukeren. Avklaringspunktet om startnummer fjernet. Bare prosjektfilen endret.
+* **2026-10-01 – dokumentversjon 2:** Brukerens avklaringer bevart. Dagens kode skilt fra vedtatte krav; klargjøring før PWA, avgrenset PWA-omfang, produksjonsopprydding og isolerte automatiserte tester dokumentert. Gjenstående startnummer og PWA-utforming markert. Bare prosjektfilen endret.
 * **2026-10-01 – dokumentversjon 1:** Kontrollert mot lokal kode. Funksjoner og filstruktur fylt ut; datamodell, innlogging, regler, kjøring og publisering korrigert. PWA dokumentert som planlagt. Avvik og vurderingspunkter merket. Ingen applikasjonsfiler endret.
