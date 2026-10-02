@@ -1,5 +1,7 @@
 // js/main.js
 
+import { getOsloDate } from "./dates.js";
+
 import { db, ref, update, get, child, onValue, waitForAuth, signOutUser } from "./firebase-init.js";
 import {
   getFromStorage,
@@ -77,12 +79,12 @@ function markItemAsBought(itemId) {
     .then(snapshot => {
       if (snapshot.exists()) {
         const item = snapshot.val();
-        const currentDate = new Date().toISOString().split("T")[0];
+        const currentDate = getOsloDate();
         const newBoughtDate = [currentDate, ...(item.BoughtDate || [])].slice(0, 10);
         const itemRef = ref(db, `handleliste/${itemId}`);
         return update(itemRef, {
           Buy: false,
-          BoughtBy: getFromStorage("person", "Anonymous"),
+          BoughtBy: getFromStorage("person", "Morten"),
           BoughtDate: newBoughtDate,
           BuyNumber: (item.BuyNumber || 0) + 1
         });

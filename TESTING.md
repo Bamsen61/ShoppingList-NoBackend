@@ -1,100 +1,25 @@
-# ShoppingList App - Local Testing Guide
+# Testing – appversjon 1
 
-## 🌐 Access the Application
-- **URL**: http://localhost:8000
-- **Alternative**: http://127.0.0.1:8000
+## Automatiserte tester
 
-## 🧪 Manual Testing Steps
+```powershell
+Set-Location 'D:\GIT\ShoppingList-NoBackend'
+node --experimental-vm-modules --test tests/*.test.cjs
+git diff --check
+```
 
-### 1. Basic Interface Testing
-- [ ] Page loads without errors
-- [ ] "Loading shop..." appears in header
-- [ ] Font size selector is visible (Normal, Large, Extra Large, Huge)
-- [ ] Person selector shows "Morten" and "Linh" options
-- [ ] "Add" button is visible at bottom
+Krever Node.js 22 eller nyere. Bruker innebygd node:test og vm.SourceTextModule; ingen npm-avhengigheter. Node kan vise ExperimentalWarning for VM modules.
 
-### 2. Firebase Connection Testing
-- [ ] Shop name loads (should change from "Loading shop...")
-- [ ] No console errors in browser developer tools
-- [ ] Items list populates (if any exist in database)
+tests/app.test.cjs kjører de faktiske appmodulene i isolerte VM-kontekster med Firebase erstattet av en in-memory mock. Modul-loaderen avviser nettverksimporter; fetch, XMLHttpRequest og produksjonskontoer er ikke tilgjengelige. Hver test får egne fixtures. Ingen test skriver til produksjonsdatabasen.
 
-### 3. Font Size Testing
-- [ ] Change font size dropdown
-- [ ] Verify text size changes immediately
-- [ ] Refresh page - font size should persist
+Dekker standardperson og valgt person, Oslo-dato rundt midnatt og sommertid, inklusive 50 kalenderdager, ugyldige datoer, norsk sortering, direkte retur til forsiden, opprettelse, kjøp/teller/historikk, tillegg, redigering/sletting og avviste writes ved manglende auth. Søk, Vis alle og bokstavnavigasjon kontrolleres med DOM-mock. Publiseringskontrollen tillater bare nødvendige appfiler og kontrollerer lokale ressursreferanser samt appversjon 1.
 
-### 4. Person Selection Testing
-- [ ] Switch between Morten and Linh
-- [ ] Setting should persist after page reload
+Mocken bekrefter ikke ekte innlogging, aktive Firebase-regler, nettverksbasert realtime eller rendering i Android Chrome. Bruk lokal Firebase-emulator hvis automatisert auth-/regelintegrasjon blir nødvendig.
 
-### 5. Shop Management Testing
-- [ ] Click on shop name in header
-- [ ] Enter a new shop name
-- [ ] Verify shop name updates
+## Avgrenset manuell kontroll
 
-### 6. Add Item Testing
-- [ ] Click "Add" button
-- [ ] Should navigate to add item page
-- [ ] Fill in item name and shop
-- [ ] Click "OK" to add item
-- [ ] Should return to main page with new item
+Gi brukeren én test om gangen og vent på svaret. Etter tilgjengeliggjøring av oppdatert app: åpne Legg til → Ny vare → Avbryt på Android Chrome og kontroller at forsiden vises; kontroller deretter Androids Back-knapp. Dette krever enheten og kan ikke bekreftes av DOM-mocken.
 
-### 7. Mark Item as Bought
-- [ ] Click on any item in the list
-- [ ] Item should disappear from list (marked as bought)
+Ved relevant auth/realtime-endring kontrolleres autorisert innlogging og oppdatering mellom to ekte klienter separat. Klargjøringen endrer ikke auth-logikk eller regler. Lokal server bruker ekte Firebase; ikke bruk vareoperasjoner mot produksjon som automatiserte tester.
 
-## 🛠️ Developer Tools Testing
-
-### Open Browser Developer Tools (F12):
-
-#### Console Tab:
-- [ ] No red errors
-- [ ] Firebase connection successful
-- [ ] Check for any JavaScript errors
-
-#### Network Tab:
-- [ ] All files load successfully (200 status)
-- [ ] Firebase requests working
-- [ ] No failed requests (check for 404s or CORS errors)
-
-#### Application Tab:
-- [ ] LocalStorage contains saved settings:
-  - `fontSize`
-  - `person`
-  - `shop`
-
-## 🔧 Troubleshooting Common Issues
-
-### If page doesn't load:
-1. Check terminal - server should be running
-2. Try: `python -m http.server 8000` in docs folder
-3. Verify URL: http://localhost:8000
-
-### If Firebase doesn't connect:
-1. Check browser console for errors
-2. Verify internet connection
-3. Check Firebase project status
-
-### If items don't load:
-1. Check Firebase database rules
-2. Verify database has data
-3. Check network requests in dev tools
-
-## 📱 Mobile Testing
-- Use browser dev tools device emulation
-- Test touch interactions
-- Verify responsive design
-
-## 🧪 Browser Compatibility Testing
-Test in multiple browsers:
-- [ ] Chrome/Chromium
-- [ ] Firefox
-- [ ] Edge
-- [ ] Safari (if available)
-
-## 💾 Data Persistence Testing
-1. Add items
-2. Close browser
-3. Reopen application
-4. Verify items are still there
-5. Test across different devices/browsers
+Person og fontSize er de lokale innstillingene. Det finnes ingen global shop-innstilling. Logout er skjult; appversjon vises ikke. PWA-installasjon testes først i PWA-runden.

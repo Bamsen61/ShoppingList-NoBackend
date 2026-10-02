@@ -69,15 +69,6 @@ function navigateWithoutHistory(url) {
 }
 
 function returnToMainPage() {
-  if (document.referrer) {
-    const referrerUrl = new URL(document.referrer);
-
-    if (referrerUrl.origin === window.location.origin && window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-  }
-
   navigateWithoutHistory("index.html");
 }
 

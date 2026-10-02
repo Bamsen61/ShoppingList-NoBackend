@@ -1,5 +1,7 @@
 // js/markitemtobuy.js
 
+import { wasBoughtWithinDays } from "./dates.js";
+
 import { db, ref, update, onValue, waitForAuth } from "./firebase-init.js";
 import {
   applySavedFontSize,
@@ -226,38 +228,7 @@ function getTargetLetter(letter, letterTargets) {
 }
 
 function wasBoughtRecently(item) {
-  const latestBoughtDate = getLatestBoughtDate(item.BoughtDate);
-
-  if (!latestBoughtDate) {
-    return false;
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const cutoffDate = new Date(today);
-  cutoffDate.setDate(today.getDate() - RECENTLY_BOUGHT_DAYS_LIMIT);
-
-  return latestBoughtDate >= cutoffDate;
-}
-
-function getLatestBoughtDate(boughtDates) {
-  if (!Array.isArray(boughtDates) || boughtDates.length === 0) {
-    return null;
-  }
-
-  return boughtDates.reduce((latestDate, dateText) => {
-    const date = new Date(`${dateText}T00:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
-      return latestDate;
-    }
-
-    if (!latestDate || date > latestDate) {
-      return date;
-    }
-
-    return latestDate;
-  }, null);
+  return wasBoughtWithinDays(item, RECENTLY_BOUGHT_DAYS_LIMIT);
 }
 
 async function markToBuy(id) {

@@ -1,8 +1,8 @@
 # ShoppingList – prosjektbeskrivelse og driftsgrunnlag
 
-Dokumentversjon: 3
+Dokumentversjon: 4
 
-Sist kontrollert mot lokal kode: 2026-10-01
+Sist kontrollert mot lokal kode: 2026-10-02
 
 Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte krav til senere endringer. Krav merket som planlagt er ikke implementert. Opplysninger om Firebase-kontoer og aksepterte risikoer er bekreftet av brukeren; produksjonsnettstedet og aktive Firebase-innstillinger er ikke kontrollert av Codex. **Må Sjekkes** markerer gjenstående kontrollpunkter.
 
@@ -18,7 +18,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Hvis noe må testes av brukeren, be om kun én test av gangen og vent på svar.
 * Når jeg bruker "Du", "Deg" eller lignende, refererer dette til Codex ChatGPT.
 * Handleliste bruker Firebase-prosjektet `handleliste-3bdaa`. Endringer må ikke ødelegge data, regler eller innlogging for `/handleliste` eller andre apper som deler databasen.
-* Skill mellom implementert funksjonalitet og planer. Neste kodeendring er en klargjøringsrunde. Deretter følger PWA med internett påkrevd; offline-støtte og egen cache-strategi kommer senere.
+* Skill mellom implementert funksjonalitet og planer. Klargjøringsrunden er implementert. Neste kodeendring er PWA med internett påkrevd; offline-støtte og egen cache-strategi kommer senere.
 * Automatiserte tester skal bruke isolerte testdata og ikke skrive til produksjonsdatabasen. Hold manuelle tester så få som mulig.
 * Kontroller endringsomfang med `git diff`. Ikke endre andre filer enn oppgaven omfatter eller ta med uvedkommende lokale endringer i commit.
 
@@ -29,11 +29,11 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Oppgitt produksjonsadresse: `https://bamsen61.github.io/ShoppingList-NoBackend/index.html`
 * `.github/workflows/deploy.yml` publiserer ved push til `main` og kan startes med `workflow_dispatch`.
 * Bare innholdet i `docs/` lastes opp til GitHub Pages.
-* Statisk HTML, CSS og JavaScript med ES modules; ingen build-prosess, `package.json` eller automatisert testpakke.
+* Statisk HTML, CSS og JavaScript med ES modules; ingen build-prosess eller `package.json`. Automatiserte tester bruker Node.js 22+ med innebygd `node:test` og VM-moduler.
 * Målplattform: Android Chrome. Responsiv layout finnes; øvrig nettleserkompatibilitet er ikke bekreftet.
 * Ingen egen backend kjøres i repoet. Firebase Authentication og Realtime Database brukes direkte fra nettleseren.
 * PWA, service worker og egen offline-cache er ikke implementert.
-* Appversjon er ikke implementert. Et tomt versjonsfelt i HTML og `configuration_version` i `google-services.json` er ikke appversjoner.
+* Appversjon **1** er definert sentralt i `docs/js/version.js`, importert via Firebase-init og ikke vist i GUI.
 
 ## Formål
 
@@ -113,7 +113,7 @@ Hver vare ligger under `/handleliste/<Key>`. Nye nøkler genereres med Firebase 
 | Felt | Type brukt i appen | Innhold og oppførsel |
 |---|---|---|
 | `AddedBy` | String | Valgt person ved opprettelse; standard `Morten` hvis lokalt valg mangler. |
-| `BoughtBy` | String | Valgt person ved siste kjøp; tom string ved opprettelse. Dagens kjøpsfunksjon bruker `Anonymous` hvis personvalget mangler. Planlagt krav: bruk `Morten` som standard. |
+| `BoughtBy` | String | Valgt person ved siste kjøp; tom string ved opprettelse. Kjøpsfunksjonen bruker `Morten` hvis personvalget mangler. |
 | `BoughtDate` | Array av strings | Inntil ti siste registrerte kjøpsdatoer, nyeste registrering først, i format `YYYY-MM-DD`. Tom array ved opprettelse; koden håndterer manglende felt som tom historikk. |
 | `Buy` | Boolean | `true`: på handlelisten; `false`: tilgjengelig under "Legg til". Ny vare får `true`. |
 | `BuyNumber` | Number | Antall registrerte kjøp; starter på 0 og økes med 1. Reglene krever ikke heltall. |
@@ -140,7 +140,7 @@ Eksempel på format, ikke en kontrollert produksjonsrecord:
 }
 ```
 
-Kjøpsdato bruker nå `toISOString()` og dermed UTC-dato. 50-dagersfilteret bruker nettleserens lokale midnatt. Planlagt krav: nye kjøp skal registreres med norsk lokal dato (`Europe/Oslo`), og 50-dagersfilteret skal bruke samme datogrunnlag. Formatet forblir `YYYY-MM-DD`; eksisterende kjøpshistorikk skal ikke omskrives.
+Nye kjøp bruker norsk lokal dato (`Europe/Oslo`) fra `docs/js/dates.js`. 50-dagersfilteret bruker samme Oslo-dato og kalenderdager, med grensedagen inkludert uavhengig av sommertid og klientens tidssone. Ugyldige datoer ignoreres; eksisterende gyldige fremtidige datoer inkluderes som før. Formatet er `YYYY-MM-DD`; eksisterende kjøpshistorikk er ikke omskrevet.
 
 Kjøpsregistrering bruker `get()` etterfulgt av `update()`, uten transaction. Samtidige kjøp av samme vare kan overskrive teller eller historikk. Brukeren har akseptert dette; innføring av transaction er ikke planlagt.
 
@@ -150,15 +150,15 @@ Kjøpsregistrering bruker `get()` etterfulgt av `update()`, uten transaction. Sa
 * Firebase håndterer persistent auth separat. Lokal lagring erstatter ikke varedatabasen.
 * Hovedsidens listener ryddes ved `pagehide` og kobles til igjen ved `pageshow` fra back/forward cache. "Legg til" rydder ved `beforeunload`.
 * Redigering bruker URL-parametrene `id` og `return`. Normal retur er `index.html` eller `markitemtobuy.html`.
-* `returnToMainPage()` bruker historikken ved referrer med samme origin og tilgjengelig historikk; ellers `location.replace("index.html")`. Flere andre overganger bruker også `location.replace()`.
+* `returnToMainPage()` bruker alltid `location.replace("index.html")`. Flere andre overganger bruker også `location.replace()`.
 
-Planlagt krav: `returnToMainPage()` skal alltid gå til `index.html`, også etter opprettelse/avbryt av ny vare og ved «Tilbake» fra «Legg til». Dette er ikke implementert; funksjonen bruker fortsatt nettleserhistorikken. Den separate `return=markitemtobuy.html`-returen fra redigering beholdes. Androids Back-knapp må fortsatt kontrolleres ved navigasjonsendringen.
+Retur går direkte til `index.html`, også etter opprettelse/avbryt av ny vare og ved «Tilbake» fra «Legg til». Den separate `return=markitemtobuy.html`-returen fra redigering er beholdt. **Må Sjekkes**: Androids Back-knapp etter publisering av navigasjonsendringen.
 
 ## PWA og cache – planlagt
 
 PWA er ikke implementert. Nåværende app har ingen manifestfil, service worker, service worker-registrering eller PWA-ikoner. `site/manifest.webmanifest` og `site/sw.js` fra dokumentmalen beskriver ikke dette repoet.
 
-Brukeren har bestemt at klargjøringsrunden gjennomføres først. Første PWA-runde gir installasjon på Android Chrome og åpning i eget appvindu, med internett påkrevd. Offline-støtte og egen cache-strategi utsettes.
+Klargjøringsrunden er implementert før PWA. Første PWA-runde gir installasjon på Android Chrome og åpning i eget appvindu, med internett påkrevd. Offline-støtte og egen cache-strategi utsettes.
 
 Før PWA-implementeringen må følgende konkretiseres:
 
@@ -175,24 +175,28 @@ Før PWA-implementeringen må følgende konkretiseres:
 | Fil/mappe | Ansvar |
 |---|---|
 | `docs/` | Alt innholdet som publiseres til GitHub Pages. |
-| `docs/index.html` | Hovedliste, personvalg, skriftstørrelse og "Legg til". Tomt versjonsfelt; logout-knapp kommentert ut. |
+| `docs/index.html` | Hovedliste, personvalg, skriftstørrelse og "Legg til". Ingen versjonsvisning; logout-knapp kommentert ut. |
 | `docs/login.html` | Login, feilmeldinger og redirect; inline JavaScript og CSS. |
 | `docs/markitemtobuy.html` | Eksisterende varer, søk, bokstavnavigasjon og knapper for ny vare, alle varer og retur. |
 | `docs/additemtodatabase.html` | Skjema for opprettelse av vare. |
 | `docs/edititem.html` | Skjema for redigering og sletting. |
 | `docs/js/firebase-init.js` | Firebase-konfigurasjon, SDK, UID-allowlist, persistence og auth-funksjoner. |
 | `docs/js/common.js` | Lokal lagring, skriftstørrelse, sortering, langt trykk og navigasjon. |
+| `docs/js/dates.js` | Oslo-dato, datovalidering og kalenderbasert filter. |
+| `docs/js/version.js` | Sentralt appversjonsnummer, nå 1. |
+| `tests/app.test.cjs` | Automatiserte tester med isolert Firebase-/DOM-mock. |
+| `tools/README.md` | Upubliserte hjelpefiler og oppdaterte lokale lenker. |
 | `docs/js/main.js` | Realtime hovedliste og registrering av kjøp. |
 | `docs/js/markitemtobuy.js` | Realtime tilgjengelige varer, 50-dagersfilter, søk og bokstavnavigasjon. |
 | `docs/js/additemtodatabase.js` | Opprettelse med Firebase `push()`. |
 | `docs/js/edititem.js` | Lasting, oppdatering og sletting av enkeltvare. |
 | `docs/css/style.css` | Felles styling og responsiv layout for varesidene. |
-| `docs/api-key-test.html` | Diagnoseside som leser `.info/connected`; egen Firebase-konfigurasjon. |
-| `docs/auth-diagnostic.html` | Eldre diagnoseside som kan forsøke anonymous authentication og leser `/handleliste`. |
-| `docs/quick-auth-fix.html` | Eldre veilednings-/testside for anonymous authentication. |
-| `docs/auth-persistence-test.html` | Auth-status og logout-test med felles Firebase-init. |
-| `docs/CountDown.html` | Frittstående nedtelling; ikke del av handlelistens navigasjon. |
-| `docs/google-services.json` | Firebase-konfigurasjonsfil; ikke lastet av appmodulene, men ligger i publiseringsmappen. |
+| `tools/api-key-test.html` | Diagnoseside som leser `.info/connected`; egen Firebase-konfigurasjon. |
+| `tools/auth-diagnostic.html` | Eldre diagnoseside som kan forsøke anonymous authentication og leser `/handleliste`. |
+| `tools/quick-auth-fix.html` | Eldre veilednings-/testside for anonymous authentication. |
+| `tools/auth-persistence-test.html` | Auth-status og logout-test med felles Firebase-init. |
+| `tools/CountDown.html` | Frittstående nedtelling; ikke del av handlelistens navigasjon. |
+| `tools/google-services.json` | Firebase-konfigurasjonsfil; ikke lastet av appmodulene, og ligger utenfor publiseringsmappen. |
 | `database.rules.json` | Lokale regler for `/handleliste` og `/hvoreralle`. |
 | `firebase.json` | Lokal, Git-ignorert kobling til regelfilen for Firebase CLI. |
 | `.firebaserc` | Lokalt, Git-ignorert standardprosjekt for Firebase CLI. |
@@ -201,19 +205,18 @@ Før PWA-implementeringen må følgende konkretiseres:
 | `.env.example` | Lokal mal med `VITE_FIREBASE_*`; Git-ignorert av eksisterende mønster og ikke brukt av appen. |
 | `test_server.py` | HTTP-server for `docs/`; skriver ut URL-er og åpner nettleser. Ingen automatiserte assertions. |
 | `Readme.md` | Oversikt og oppstart; Git registrerer filnavnet som `README.md`. |
-| `TESTING.md` | Eldre manuell testguide med utdaterte forventninger. |
-| `FIREBASE_SETUP.md` | Eldre oppsett for anonymous authentication og alternative regler. |
-| `SECURITY_DEPLOYMENT.md` | Eldre email/password-veiledning med utdaterte regler og innloggingsopplysninger. |
-| `DEPLOY_RULES.md` | Eldre regeldeploy-veiledning med eksempler som ikke er gjeldende regler. |
+| `TESTING.md` | Faktisk testkommando, isolerte mocks og avgrenset manuell kontroll. |
+| `FIREBASE_SETUP.md` | Gjeldende email/password, UID-allowlist og lokale regler. |
+| `SECURITY_DEPLOYMENT.md` | Gjeldende tilgang og bevarte, tidligere aksepterte kontoopplysninger. |
+| `DEPLOY_RULES.md` | Separat avtalt regeldeploy av komplett lokalfil; ingen deploy i klargjøringen. |
 | `ShoppigList Prosjekt.md` | Denne prosjektbeskrivelsen og avklaringspunktene. |
 
-## Dokumentasjonsavvik og sikkerhetspunkter
+## Dokumentasjon og sikkerhetspunkter
 
-* `SECURITY_DEPLOYMENT.md` inneholder et passord i klartekst. Brukeren har akseptert risikoen. Dette punktet gjenåpnes ikke som en avklaring; passordet gjentas ikke i prosjektfilen.
-* `FIREBASE_SETUP.md` og `DEPLOY_RULES.md` viser offentlig database-tilgang og anonymous authentication. `SECURITY_DEPLOYMENT.md` viser bredere tilgang enn UID-allowlisten og feil datatype for `BoughtDate`. Planlagt: revider veiledningene i klargjøringsrunden mot gjeldende kode og lokale regler; ikke deploy regler som del av dokumentasjonsrettingen.
-* `Readme.md` hevder miljøvariabelstøtte og verifiserte API key-restriksjoner. Planlagt: korriger dokumentet i klargjøringsrunden. **Må Sjekkes**: Faktiske restrictions og authorized domains krever kontroll i Firebase/Google Cloud ved relevante auth-/konfigurasjonsendringer. Ikke beskriv dem som verifisert uten slik kontroll.
-* `TESTING.md` beskriver "Loading shop...", global butikkredigering, `shop` i localStorage og eldre knappenavn. Firebase-veiledningene viser også til testsider som ikke finnes. Planlagt: oppdater testguiden mot den ferdige koden og det nye testregimet. Bruk eksisterende filnavn `TESTING.md`; ikke opprett `Testing.md` som en ekstra fil.
-* Alt i `docs/` publiseres fortsatt. Planlagt: bare nødvendige appfiler skal være i publiseringsmappen. Flytt diagnosesidene, `google-services.json` og `CountDown.html` ut av `docs/` til en upublisert mappe, og rett relevante lenker. Bevar filene i repoet; det er ikke behov for å slette dem for å utelate dem fra produksjon. Ingen av dem er lastet fra den ordinære appflyten.
+* Eksisterende README, Firebase-veiledninger og TESTING.md er revidert mot appversjon 1 og lokale regler. Utdaterte eksempler med offentlig tilgang og generell auth != null er fjernet fra gjeldende veiledninger. Ingen regler er endret eller deployet.
+* SECURITY_DEPLOYMENT.md beholder tidligere aksepterte kontoopplysninger. Risikoen gjenåpnes ikke; passord gjentas ikke her.
+* **Må Sjekkes**: Faktiske API key restrictions og authorized domains ved relevante auth-/konfigurasjonsendringer. De beskrives ikke som verifisert.
+* Publiseringsmappen docs/ inneholder bare de fem appsidene, felles CSS og åtte JavaScript-moduler. Diagnosesider, google-services.json og CountDown.html er bevart i tools/. auth-persistence-test.html peker nå på ../docs/js/firebase-init.js; tools/README.md beskriver lokal bruk. Historiske anonymous-auth-diagnoser er ikke gjeldende oppsettsinstruksjoner.
 
 ## Lokal kjøring og verifikasjon
 
@@ -237,29 +240,33 @@ Ved fremtidige kodeendringer velges relevante kontroller:
 
 Dette er en referanseliste. Be brukeren om én konkret test av gangen og vent på svar. `npm test` og `npm run check` finnes ikke i repoet.
 
-### Planlagt automatisert testregime
+### Implementert automatisert testregime
 
-Ingen automatiserte tester er implementert ennå. Klargjøringsrunden skal etablere et kjørbart testregime med isolerte fixtures og en mock av Firebase for tester som ellers ville skrevet til databasen. Testkjøring skal ikke bruke produksjonskontoer eller gjøre write-operasjoner mot produksjonsdatabasen, heller ikke opprette og deretter slette testvarer der.
+Node.js 22+ med innebygd node:test og vm.SourceTextModule, uten npm-avhengigheter:
 
-Prioriter tester for standardperson, datoer rundt norsk midnatt/sommertid, 50-dagersfilter, sortering, navigasjon og vareoperasjonene. Kontroller også at publiseringsmappen bare inneholder appens nødvendige filer. Dokumenter valgt verktøy og den faktiske testkommandoen i `TESTING.md` og prosjektfilen når oppsettet finnes.
+```powershell
+node --experimental-vm-modules --test tests/*.test.cjs
+```
 
-Mocks bekrefter ikke aktive Firebase-regler eller innlogging mot Firebase. Bruk en lokal emulator dersom automatisert integrasjonstest av disse blir nødvendig. Begrens manuell kontroll til det automatiseringen ikke dekker, særlig ekte auth/realtime og Androids Back-knapp/PWA-installasjon.
+tests/app.test.cjs kjører appmodulene med isolerte fixtures, DOM-mock og in-memory Firebase-mock. Eksterne modulimporter avvises; nettverks-API-er og produksjonskontoer er ikke tilgjengelige. Ingen writes til produksjon forekommer.
+
+Testene dekker standardperson, Oslo-midnatt/sommertid, inklusive 50-dagersfilter, norsk sortering, navigasjon, vareoperasjoner, avviste writes ved auth-feil, søk/bokstavnavigasjon og nødvendige publiseringsfiler. TESTING.md beskriver kommando og begrensninger. Mocks bekrefter ikke aktive regler, ekte auth/realtime eller Androids Back-knapp. Bruk lokal emulator hvis integrasjonstester blir nødvendige.
 
 ## Neste kodeendringer – vedtatt rekkefølge
 
-Denne dokumentoppdateringen gjennomfører ingen av punktene nedenfor.
+Punkt 1 er implementert i appversjon 1. Punkt 2 er neste planlagte kodeendring.
 
-### 1. Klargjøring før PWA
+### 1. Klargjøring før PWA – gjennomført 2026-10-02
 
-* Innfør ett sentralt appversjonsnummer i koden, uten visning i GUI. Brukeren har fastsatt første appversjon til `1`; deretter økes den med 1 per kodeendringsrunde. Appversjonen er uavhengig av dokumentversjonen.
-* Endre standardverdien for `BoughtBy` fra `Anonymous` til `Morten`.
-* Bruk norsk lokal dato ved nye kjøp og samme datogrunnlag i 50-dagersfilteret. Behold eksisterende historikk og datoformat.
-* La `returnToMainPage()` gå direkte til forsiden.
-* Revider eksisterende veiledninger og testdokumentasjon. Behold UID-allowlist, skjult logout og akseptert håndtering av samtidige kjøp.
-* Flytt filer som ikke trengs av appen ut av `docs/`, uten å slette dem.
-* Etabler automatiserte tester med isolerte data og verifiser at de ikke skriver til produksjonsdatabasen.
+* Sentralt appversjonsnummer `1` er innført uten visning i GUI. Det økes med 1 per senere kodeendringsrunde og er uavhengig av dokumentversjonen.
+* Standardverdien for `BoughtBy` er endret fra `Anonymous` til `Morten`.
+* Norsk lokal dato brukes ved nye kjøp og i 50-dagersfilteret. Eksisterende historikk og datoformat er beholdt.
+* `returnToMainPage()` går direkte til forsiden.
+* Eksisterende veiledninger og testdokumentasjon er revidert. UID-allowlist, skjult logout og akseptert håndtering av samtidige kjøp er beholdt.
+* Filer som ikke trengs av appen er flyttet fra `docs/` til `tools/`, uten sletting.
+* Automatiserte tester med isolerte data er etablert; 9 tester passerer uten nettverk eller writes til produksjonsdatabasen.
 
-Klargjøringen er ferdig når relevante tester passerer, dokumentasjonen beskriver faktisk kode og publiseringsmappen er kontrollert. Ingen endring i datamodell, aktive Firebase-regler eller eksisterende varer inngår i denne runden.
+Klargjøringen er gjennomført: relevante automatiserte tester passerer, dokumentasjonen beskriver faktisk kode og publiseringsmappen er kontrollert. Ingen endring i datamodell, aktive Firebase-regler eller eksisterende varer er utført. Androids Back-knapp gjenstår som avgrenset manuell kontroll etter tilgjengeliggjøring.
 
 ### 2. PWA med internett påkrevd
 
@@ -287,11 +294,13 @@ Ved avtalt publisering fra `main`:
 git push origin main
 ```
 
-Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjonsfunksjon. Manuell mobiltest gis én oppgave av gangen. Ingen commit, push eller Firebase-deploy er utført i denne dokumentgjennomgangen.
+Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjonsfunksjon. Manuell mobiltest gis én oppgave av gangen. Ingen commit, push eller Firebase-deploy er utført i klargjøringsrunden.
 
 Ved tilbakeføring reverseres den konkrete feilaktige committen med `git revert`, etter kontroll av lokale endringer. En eldre nettstedversjon reverserer ikke databaseendringer eller Firebase-regler. Før senere endringer i regler eller datamodell sikres gjeldende regler og nødvendige data separat.
 
 ## Endringslogg for prosjektfilen
+
+* **2026-10-02 – dokumentversjon 4, appversjon 1:** Klargjøring implementert: sentral appversjon, Morten som standard ved kjøp, Oslo-dato/filter, direkte retur, upubliserte hjelpefiler, reviderte veiledninger og isolerte automatiserte tester. Ingen produksjonsdata, regler eller auth-innstillinger endret.
 
 * **2026-10-01 – dokumentversjon 3:** Første appversjon fastsatt til `1` av brukeren. Avklaringspunktet om startnummer fjernet. Bare prosjektfilen endret.
 * **2026-10-01 – dokumentversjon 2:** Brukerens avklaringer bevart. Dagens kode skilt fra vedtatte krav; klargjøring før PWA, avgrenset PWA-omfang, produksjonsopprydding og isolerte automatiserte tester dokumentert. Gjenstående startnummer og PWA-utforming markert. Bare prosjektfilen endret.

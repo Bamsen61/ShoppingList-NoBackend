@@ -1,68 +1,11 @@
-# Firebase Anonymous Authentication Setup
+# Gjeldende Firebase-oppsett
 
-## 🔐 Enable Anonymous Authentication in Firebase Console
+Appen bruker prosjektet handleliste-3bdaa og Firebase Web SDK 9.23.0 fra gstatic. Konfigurasjonen er i docs/js/firebase-init.js; miljøfiler brukes ikke.
 
-### Step 1: Access Firebase Console
-1. Go to [Firebase Console](https://console.firebase.google.com)
-2. Select your project: `handleliste-3bdaa`
+Innlogging skjer med email/password på docs/login.html. Klienten tillater UID-ene ZDq6ZGvDVDafX8BVlWGRhBoSn9X2 og fmVOzYiAtsOUNnUE33VZbwHR0SG3. browserLocalPersistence bevarer innlogging når nettleserlagring og kontostatus tillater det. waitForAuth() beskytter vareoperasjonene. Registrering, password reset og synlig logout er ikke implementert.
 
-### Step 2: Enable Anonymous Authentication
-1. In the left sidebar, click **Authentication**
-2. Go to **Sign-in method** tab
-3. Find **Anonymous** in the list of providers
-4. Click **Anonymous** to open settings
-5. Toggle **Enable** to turn it on
-6. Click **Save**
+database.rules.json er lokal regelfil. Rotens read/write gir de to UID-ene tilgang, også til /hvoreralle. Handlelistevarer krever Name, Shop, AddedBy og Buy; BoughtDate har strings som underverdier. Se filen for komplette valideringer. Eksisterende /hvoreralle-regler og data skal bevares.
 
-### Step 3: Check Database Rules
-1. In the left sidebar, click **Realtime Database**
-2. Go to **Rules** tab
-3. Make sure your rules look like this:
+Aktive Firebase-regler, API key restrictions og authorized domains er ikke verifisert. Sammenlign aktive regler med hele lokalfilen før en senere avtalt regeldeploy. Klargjøringen endrer ingen Firebase-innstillinger.
 
-```json
-{
-  "rules": {
-    "handleliste": {
-      ".read": true,
-      ".write": true
-    }
-  }
-}
-```
-
-4. Click **Publish** to deploy the rules
-
-### Step 4: Test the Application
-- Open `http://localhost:8000/index.html`
-- Items should now load properly
-
-## 🔧 Alternative: Update Rules for Authenticated Users Only
-
-If you want to require authentication, use these rules instead:
-
-```json
-{
-  "rules": {
-    "handleliste": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    }
-  }
-}
-```
-
-## 🧪 Test Pages Available
-
-- **Direct Test**: `http://localhost:8000/direct-test.html` - Tests without authentication
-- **Simple Test**: `http://localhost:8000/simple-test.html` - Tests with authentication
-- **Main App**: `http://localhost:8000/index.html` - Your shopping list app
-
-## 🚨 Common Issues
-
-- **auth/admin-restricted-operation**: Anonymous auth not enabled
-- **permission-denied**: Database rules block access
-- **Invalid API key**: Check your Firebase configuration
-
-## 💡 Quick Fix
-
-If you can't access Firebase Console right now, the direct test should work if your database rules allow public access.
+Historiske anonymous-auth-diagnoser ligger i tools/ og er ikke gjeldende oppsettsveiledning. Se [DEPLOY_RULES.md](DEPLOY_RULES.md) og [TESTING.md](TESTING.md).

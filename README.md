@@ -1,59 +1,30 @@
 # ShoppingList-NoBackend
 
-A secure shopping list web application using Firebase Realtime Database, designed for GitHub Pages deployment.
+Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **1** er definert i docs/js/version.js og vises ikke i GUI. PWA og offline-støtte er planlagt.
 
-## 🖥 Test local GIT clone
+## Lokal kjøring
 
-**In local Powershell:**
-- cd "d:\GIT\ShoppingList-NoBackend\docs"
-- python -m http.server 8000
-- Open http://localhost:8000/
+```powershell
+Set-Location 'D:\GIT\ShoppingList-NoBackend'
+python -m http.server 8000 --bind 127.0.0.1 --directory docs
+```
 
-## 🔒 Security Features
+Åpne http://127.0.0.1:8000/. Appen bruker ekte Firebase; manuelle vareoperasjoner endrer reelle data. Firebase-konfigurasjonen står i docs/js/firebase-init.js. .env og VITE_FIREBASE_* leses ikke.
 
-- Domain-restricted Firebase API keys
-- Firebase Database security rules
-- Automated GitHub Pages deployment
-- Environment variable support for local development
+## Automatiserte tester
 
-## 🚀 Deployment
+```powershell
+node --experimental-vm-modules --test tests/*.test.cjs
+```
 
-This app is configured for automatic deployment to GitHub Pages via GitHub Actions.
+Node.js 22 eller nyere, uten npm-avhengigheter. Se [TESTING.md](TESTING.md). Testene bruker isolerte fixtures og mock; ingen produksjonsinnlogging eller nettverkstilgang.
 
-### Firebase Security Setup
+## Funksjoner og tilgang
 
-1. **Restrict API Key in Firebase Console:**
-   - Go to [Firebase Console](https://console.firebase.google.com)
-   - Navigate to Project Settings > General > Your apps
-   - Click on your web app
-   - Go to "API keys" section
-   - Edit the API key restrictions:
-     - **HTTP referrers**: Add your GitHub Pages domain (e.g., `https://yourusername.github.io/*`)
-     - **Websites**: Add your domain
+Handleliste sortert etter butikk og varenavn, nye/eksisterende varer, kjøpshistorikk, redigering og bekreftet sletting. Personvalg (Morten/Linh) og skriftstørrelse lagres lokalt. Standardperson er Morten. Kjøp og 50-dagersfilter bruker Europe/Oslo og YYYY-MM-DD. Eksisterende historikk beholdes.
 
-2. **Database Rules:**
-   - The `database.rules.json` file contains security rules
-   - Deploy rules via Firebase CLI: `firebase deploy --only database`
+Bare to tillatte UID-er får tilgang i klienten og lokale regler. Logout er skjult. Aktiv API key-konfigurasjon og aktive regler er ikke verifisert av denne oppdateringen. Se [FIREBASE_SETUP.md](FIREBASE_SETUP.md).
 
-### Local Development
+## Publisering
 
-1. Create `.env` file from `.env.example`
-2. Fill in your Firebase configuration
-3. Start local server: `python -m http.server 8000`
-4. Visit: `http://localhost:8000`
-
-## 📱 Features
-
-- Add/remove shopping items
-- Mark items as purchased
-- Multi-user support (Morten/Linh)
-- Adjustable font sizes
-- Shop-based organization
-- Responsive design
-
-## 🛡️ Security Best Practices
-
-- API keys are domain-restricted
-- Database access controlled by security rules
-- Sensitive data stored in environment variables
-- Automated secure deployment pipeline
+.github/workflows/deploy.yml publiserer bare docs/ ved push til main eller workflow_dispatch. tools/ og tests/ publiseres ikke. Workflowen kjører ikke tester eller regeldeploy. Ingen build er nødvendig.

@@ -1,76 +1,14 @@
-# Deploy Database Rules to Firebase
+# Firebase-regler
 
-## Option 1: Using Firebase CLI (Recommended)
+Ingen regeldeploy inngår i klargjøringen eller PWA-runden. GitHub Pages-workflowen publiserer bare nettstedet.
 
-### Install Firebase CLI
-```bash
-npm install -g firebase-tools
+Gjeldende lokale regler er i database.rules.json. firebase.json og .firebaserc finnes lokalt og er Git-ignorert. Aktive regler må sammenlignes med komplett lokalfil før en senere avtalt endring. Bevar /handleliste, /hvoreralle og de to tillatte UID-ene. Ikke bruk offentlig tilgang eller generell auth != null som erstatning.
+
+Ved separat avtalt regeldeploy, med Firebase CLI installert og innlogget:
+
+```powershell
+Set-Location 'D:\GIT\ShoppingList-NoBackend'
+firebase deploy --only database --project handleliste-3bdaa
 ```
 
-### Login and Initialize
-```bash
-firebase login
-cd d:\GIT\ShoppingList-NoBackend
-firebase init database
-```
-
-### Deploy Rules
-```bash
-firebase deploy --only database
-```
-
-## Option 2: Manual Update in Firebase Console
-
-### Steps:
-1. Go to [Firebase Console](https://console.firebase.google.com)
-2. Select your project: `handleliste-3bdaa`
-3. Click **Realtime Database** in the left sidebar
-4. Go to **Rules** tab
-5. Replace the existing rules with:
-
-```json
-{
-  "rules": {
-    "handleliste": {
-      ".read": true,
-      ".write": true
-    }
-  }
-}
-```
-
-6. Click **Publish** to deploy the new rules
-
-## Option 3: Rules for Authenticated Users Only
-
-If you prefer to require authentication:
-
-```json
-{
-  "rules": {
-    "handleliste": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    }
-  }
-}
-```
-
-## 🔍 Current Rules Check
-
-Your current rules might look like this (blocking access):
-
-```json
-{
-  "rules": {
-    ".read": false,
-    ".write": false
-  }
-}
-```
-
-## ✅ After Updating Rules
-
-Test again with:
-- http://localhost:8000/simple-test.html
-- http://localhost:8000/index.html
+Sikre gjeldende regler og nødvendige data før endringen. Automatiserte apptester bruker mock og bekrefter ikke aktive regler; bruk lokal emulator hvis integrasjonstester blir nødvendige.

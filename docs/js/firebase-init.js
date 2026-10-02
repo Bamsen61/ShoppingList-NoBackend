@@ -1,13 +1,16 @@
 // js/firebase-init.js
 
+import { APP_VERSION } from "./version.js";
+export { APP_VERSION };
+
 // Firebase v9+ Modular SDK
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import { getDatabase, ref, get, set, push, update, remove, child, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
-// Firebase configuration - API key is restricted by domain and referrer in Firebase Console
+// Firebase web configuration. Active API key restrictions have not been verified.
 const firebaseConfig = {
-  apiKey: "AIzaSyBOtxlG3Wvf2ZUF_KbZ7wlCiDHqJ5RMrvY", // Domain-restricted key
+  apiKey: "AIzaSyBOtxlG3Wvf2ZUF_KbZ7wlCiDHqJ5RMrvY",
   authDomain: "handleliste-3bdaa.firebaseapp.com",
   databaseURL: "https://handleliste-3bdaa-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "handleliste-3bdaa",
@@ -28,7 +31,7 @@ function isAuthorizedUser(user) {
   return Boolean(user && authorizedUids.has(user.uid));
 }
 
-// Set authentication persistence to LOCAL (stays logged in forever until manual logout)
+// Persist authentication across sessions when browser storage is available.
 setPersistence(auth, browserLocalPersistence)
   .then(() => {
     console.log("🔒 Authentication persistence set to LOCAL (persistent across sessions)");
