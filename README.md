@@ -1,6 +1,6 @@
 # ShoppingList-NoBackend
 
-Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **1** er definert i docs/js/version.js og vises ikke i GUI. PWA og offline-støtte er planlagt.
+Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **2** er definert i docs/js/version.js og vises som `v2` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. PWA og offline-støtte er planlagt.
 
 ## Lokal kjøring
 

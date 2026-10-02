@@ -74,9 +74,17 @@ body {
   z-index: 100;
 }
 
-.version-text {
-  font-size: 0.85em;
-  color: #666;
+.controls select,
+.app-version {
+  font: 400 13.3333px Arial, sans-serif;
+}
+
+.app-version {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
 }
 
 .letter-nav {
@@ -156,6 +164,7 @@ body {
 
 /* Header styling */
 .header { 
+  position: relative;
   display: flex; 
   flex-direction: column;
   align-items: center; 
@@ -168,11 +177,14 @@ body {
   font-size: 1.8em; 
 }
 
-.controls { 
-  display: flex; 
-  gap: 1em; 
-  align-items: center; 
-  flex-wrap: wrap;
+.controls {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  padding-inline: 24px;
+  gap: min(1em, 4vw);
+  align-items: center;
+  flex-wrap: nowrap;
   justify-content: center;
 }
 

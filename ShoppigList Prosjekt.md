@@ -1,6 +1,6 @@
 # ShoppingList – prosjektbeskrivelse og driftsgrunnlag
 
-Dokumentversjon: 4
+Dokumentversjon: 5
 
 Sist kontrollert mot lokal kode: 2026-10-02
 
@@ -12,7 +12,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Hvis noe er uklart og påvirker endringen, spør før endringer gjøres.
 * Alle prosjektendringer skal gjøres direkte i filene under `D:\GIT\ShoppingList-NoBackend\`.
 * Ved hver endringsrunde i prosjektfilen økes dokumentversjonen med 1. Oppdater kontrolldatoen når dokumentet kontrolleres mot koden.
-* Ved applikasjonsendringer skal appversjonen økes med 1 og relevante versjonsreferanser i dokumentasjon og tester oppdateres. Appen skal ha et versjonsnummer i koden. For å spare plass vises ikke versjon i GUI.
+* Ved applikasjonsendringer skal appversjonen økes med 1 og relevante versjonsreferanser i dokumentasjon og tester oppdateres. Appen skal ha et versjonsnummer i koden. Versjonen vises høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget og uten å redusere plassen til varelinjer.
 * Dokumentendringer alene øker bare dokumentversjonen. Fremtidige oppgaver i denne filen skal utføres når den aktuelle kodeendringen bestilles; de utvider ikke omfanget av en oppgave som bare gjelder prosjektfilen.
 * Ikke list lange endringer i chat.
 * Hvis noe må testes av brukeren, be om kun én test av gangen og vent på svar.
@@ -33,7 +33,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Målplattform: Android Chrome. Responsiv layout finnes; øvrig nettleserkompatibilitet er ikke bekreftet.
 * Ingen egen backend kjøres i repoet. Firebase Authentication og Realtime Database brukes direkte fra nettleseren.
 * PWA, service worker og egen offline-cache er ikke implementert.
-* Appversjon **1** er definert sentralt i `docs/js/version.js`, importert via Firebase-init og ikke vist i GUI.
+* Appversjon **2** er definert sentralt i `docs/js/version.js` og vises som `v2` på forsiden.
 
 ## Formål
 
@@ -175,7 +175,7 @@ Før PWA-implementeringen må følgende konkretiseres:
 | Fil/mappe | Ansvar |
 |---|---|
 | `docs/` | Alt innholdet som publiseres til GitHub Pages. |
-| `docs/index.html` | Hovedliste, personvalg, skriftstørrelse og "Legg til". Ingen versjonsvisning; logout-knapp kommentert ut. |
+| `docs/index.html` | Hovedliste, personvalg, skriftstørrelse og "Legg til". Høyrejustert versjonsvisning i topplinjen; logout-knapp kommentert ut. |
 | `docs/login.html` | Login, feilmeldinger og redirect; inline JavaScript og CSS. |
 | `docs/markitemtobuy.html` | Eksisterende varer, søk, bokstavnavigasjon og knapper for ny vare, alle varer og retur. |
 | `docs/additemtodatabase.html` | Skjema for opprettelse av vare. |
@@ -183,7 +183,7 @@ Før PWA-implementeringen må følgende konkretiseres:
 | `docs/js/firebase-init.js` | Firebase-konfigurasjon, SDK, UID-allowlist, persistence og auth-funksjoner. |
 | `docs/js/common.js` | Lokal lagring, skriftstørrelse, sortering, langt trykk og navigasjon. |
 | `docs/js/dates.js` | Oslo-dato, datovalidering og kalenderbasert filter. |
-| `docs/js/version.js` | Sentralt appversjonsnummer, nå 1. |
+| `docs/js/version.js` | Sentralt appversjonsnummer, nå 2. |
 | `tests/app.test.cjs` | Automatiserte tester med isolert Firebase-/DOM-mock. |
 | `tools/README.md` | Upubliserte hjelpefiler og oppdaterte lokale lenker. |
 | `docs/js/main.js` | Realtime hovedliste og registrering av kjøp. |
@@ -213,7 +213,7 @@ Før PWA-implementeringen må følgende konkretiseres:
 
 ## Dokumentasjon og sikkerhetspunkter
 
-* Eksisterende README, Firebase-veiledninger og TESTING.md er revidert mot appversjon 1 og lokale regler. Utdaterte eksempler med offentlig tilgang og generell auth != null er fjernet fra gjeldende veiledninger. Ingen regler er endret eller deployet.
+* Eksisterende README, Firebase-veiledninger og TESTING.md er revidert mot appversjon 2 og lokale regler. Utdaterte eksempler med offentlig tilgang og generell auth != null er fjernet fra gjeldende veiledninger. Ingen regler er endret eller deployet.
 * SECURITY_DEPLOYMENT.md beholder tidligere aksepterte kontoopplysninger. Risikoen gjenåpnes ikke; passord gjentas ikke her.
 * **Må Sjekkes**: Faktiske API key restrictions og authorized domains ved relevante auth-/konfigurasjonsendringer. De beskrives ikke som verifisert.
 * Publiseringsmappen docs/ inneholder bare de fem appsidene, felles CSS og åtte JavaScript-moduler. Diagnosesider, google-services.json og CountDown.html er bevart i tools/. auth-persistence-test.html peker nå på ../docs/js/firebase-init.js; tools/README.md beskriver lokal bruk. Historiske anonymous-auth-diagnoser er ikke gjeldende oppsettsinstruksjoner.
@@ -294,11 +294,13 @@ Ved avtalt publisering fra `main`:
 git push origin main
 ```
 
-Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjonsfunksjon. Manuell mobiltest gis én oppgave av gangen. Ingen commit, push eller Firebase-deploy er utført i klargjøringsrunden.
+Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjonsfunksjon. Manuell mobiltest gis én oppgave av gangen. Ingen commit, push eller Firebase-deploy er utført av Codex i denne versjonsvisningsrunden.
 
 Ved tilbakeføring reverseres den konkrete feilaktige committen med `git revert`, etter kontroll av lokale endringer. En eldre nettstedversjon reverserer ikke databaseendringer eller Firebase-regler. Før senere endringer i regler eller datamodell sikres gjeldende regler og nødvendige data separat.
 
 ## Endringslogg for prosjektfilen
+
+* **2026-10-02 – dokumentversjon 5, appversjon 2:** Versjonen vises høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget og uten ekstra høyde. Versjonen hentes fra det sentrale appversjonsnummeret.
 
 * **2026-10-02 – dokumentversjon 4, appversjon 1:** Klargjøring implementert: sentral appversjon, Morten som standard ved kjøp, Oslo-dato/filter, direkte retur, upubliserte hjelpefiler, reviderte veiledninger og isolerte automatiserte tester. Ingen produksjonsdata, regler eller auth-innstillinger endret.
 

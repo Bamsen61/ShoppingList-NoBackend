@@ -1,4 +1,4 @@
-# Testing – appversjon 1
+# Testing – appversjon 2
 
 ## Automatiserte tester
 
@@ -12,7 +12,7 @@ Krever Node.js 22 eller nyere. Bruker innebygd node:test og vm.SourceTextModule;
 
 tests/app.test.cjs kjører de faktiske appmodulene i isolerte VM-kontekster med Firebase erstattet av en in-memory mock. Modul-loaderen avviser nettverksimporter; fetch, XMLHttpRequest og produksjonskontoer er ikke tilgjengelige. Hver test får egne fixtures. Ingen test skriver til produksjonsdatabasen.
 
-Dekker standardperson og valgt person, Oslo-dato rundt midnatt og sommertid, inklusive 50 kalenderdager, ugyldige datoer, norsk sortering, direkte retur til forsiden, opprettelse, kjøp/teller/historikk, tillegg, redigering/sletting og avviste writes ved manglende auth. Søk, Vis alle og bokstavnavigasjon kontrolleres med DOM-mock. Publiseringskontrollen tillater bare nødvendige appfiler og kontrollerer lokale ressursreferanser samt appversjon 1.
+Dekker standardperson og valgt person, Oslo-dato rundt midnatt og sommertid, inklusive 50 kalenderdager, ugyldige datoer, norsk sortering, direkte retur til forsiden, opprettelse, kjøp/teller/historikk, tillegg, redigering/sletting og avviste writes ved manglende auth. Søk, Vis alle og bokstavnavigasjon kontrolleres med DOM-mock. Publiseringskontrollen tillater bare nødvendige appfiler og kontrollerer lokale ressursreferanser samt appversjon 2.
 
 Mocken bekrefter ikke ekte innlogging, aktive Firebase-regler, nettverksbasert realtime eller rendering i Android Chrome. Bruk lokal Firebase-emulator hvis automatisert auth-/regelintegrasjon blir nødvendig.
 
@@ -22,4 +22,4 @@ Gi brukeren én test om gangen og vent på svaret. Etter tilgjengeliggjøring av
 
 Ved relevant auth/realtime-endring kontrolleres autorisert innlogging og oppdatering mellom to ekte klienter separat. Klargjøringen endrer ikke auth-logikk eller regler. Lokal server bruker ekte Firebase; ikke bruk vareoperasjoner mot produksjon som automatiserte tester.
 
-Person og fontSize er de lokale innstillingene. Det finnes ingen global shop-innstilling. Logout er skjult; appversjon vises ikke. PWA-installasjon testes først i PWA-runden.
+Person og fontSize er de lokale innstillingene. Det finnes ingen global shop-innstilling. Logout er skjult; appversjon vises høyrejustert i eksisterende topplinje, med samme font som personvalget og uten ekstra høyde. PWA-installasjon testes først i PWA-runden.

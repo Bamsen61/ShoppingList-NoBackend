@@ -1,5 +1,6 @@
 // js/main.js
 
+import { APP_VERSION } from "./version.js";
 import { getOsloDate } from "./dates.js";
 
 import { db, ref, update, get, child, onValue, waitForAuth, signOutUser } from "./firebase-init.js";
@@ -183,6 +184,7 @@ window.addEventListener("pageshow", (event) => {
 
 window.addEventListener("DOMContentLoaded", () => {
   applySavedFontSize();
+  document.getElementById("appVersion").textContent = `v${APP_VERSION}`;
   const person = getFromStorage("person", "Morten");
   document.getElementById("personSelector").value = person;
   setupRealtimeListener();
