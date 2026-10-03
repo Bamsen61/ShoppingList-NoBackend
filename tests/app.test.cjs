@@ -85,7 +85,7 @@ test('purchase uses default Morten, Oslo date, increments count and preserves te
   for(const person of [undefined,'Linh']) {
     const history=Array.from({length:10},(_,i)=>'2026-09-'+String(30-i).padStart(2,'0'));
     const a=await app('main.js',{person,data:{fixture:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:7,BoughtDate:history}}});await a.ready();
-    assert.equal(a.elements.appVersion.textContent, "v5");
+    assert.equal(a.elements.appVersion.textContent, "v6");
     a.elements.itemList.children[0].events.pointerup({});await a.flush();
     const fields=a.writes[0][2];assert.equal(fields.BoughtBy,person||'Morten');assert.equal(fields.BuyNumber,8);assert.equal(fields.Buy,false);
     assert.deepEqual(fields.BoughtDate,['2026-10-02',...history.slice(0,9)]);
@@ -132,7 +132,7 @@ test('publication contains only necessary app files and all local references res
   }
   const source=fs.readFileSync(path.join(root,'docs/js/firebase-init.js'),'utf8');assert.match(source,/ZDq6ZGvDVDafX8BVlWGRhBoSn9X2/);assert.match(source,/fmVOzYiAtsOUNnUE33VZbwHR0SG3/);
   assert.match(fs.readFileSync(path.join(root,'docs/index.html'),'utf8'),/<!-- <button onclick="logout\(\)"/);
-  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 5;/);
+  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 6;/);
 });
 
 test('offline restart shows only shopping rows, persists marks and prevents navigation/editing',async()=>{
@@ -206,13 +206,13 @@ test('service worker precaches shell/SDK, provides offline navigation and never 
   let offline=false,fetches=0;
   const cache={addAll:async requests=>{for(const request of requests) { assert.equal(request.cache,'no-store');cached.set(request.url,{url:request.url,installed:true}); }},match:async request=>cached.get(typeof request==='string'?request:request.url)};
   const context=vm.createContext({URL,Request,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{},matchAll:async()=>[]},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},
-    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v4','handleliste-shell-v5','another-app'],delete:async key=>deleted.push(key)},
+    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v5','handleliste-shell-v6','another-app'],delete:async key=>deleted.push(key)},
     fetch:async request=>{fetches++;if(offline) throw Error('offline');return {url:request.url,ok:true,installed:false};}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
   for(const url of cached.keys()) if(url.startsWith(base)) assert.ok(fs.existsSync(path.join(root,'docs',url.slice(base.length))),url);
   assert.ok(cached.has('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js'));
-  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v4']);
+  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v5']);
   function fetchEvent(url,mode='cors',method='GET') { let response;events.fetch({request:{url,mode,method},respondWith:p=>response=p});return response; }
   const online=await fetchEvent(base+'index.html','navigate');assert.equal(online.installed,true);
   offline=true;
@@ -229,15 +229,15 @@ test('new service worker cannot populate its shell with v2 modules from the HTTP
   const cache={addAll:async requests=>{
     for(const request of requests) {
       // Reproduce Chrome holding the old version.js in its separate HTTP cache.
-      const source=request.cache==='no-store' ? 'APP_VERSION = 5' : 'APP_VERSION = 2';
+      const source=request.cache==='no-store' ? 'APP_VERSION = 6' : 'APP_VERSION = 2';
       stored.set(request.url,source);
     }
   }};
   const context=vm.createContext({URL,Request,self:{location:{href:base+'sw.js'},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>cache}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
-  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 5');
-  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 5');
+  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 6');
+  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 6');
 });
 
 async function updateApp({online=true,update=async()=>{},waiting=null,failRegistration=false}={}) {
@@ -304,4 +304,27 @@ test('registration failure at startup retries successfully on next focus',async(
   let checks=0;const a=await updateApp({failRegistration:true,update:async()=>checks++});
   assert.equal(a.registrations.length,1);assert.equal(checks,0);assert.equal(a.logs.length,1);
   await a.windowEvent('focus');assert.equal(a.registrations.length,2);assert.equal(checks,1);
+});
+
+test('offline reconnect click gives feedback without a dialog and keeps shopping list usable',async()=>{
+  const stored=[['handleliste.offline.v1',JSON.stringify({items:[{id:'one',Name:'Kaffe',Shop:'Extra'}],pending:{}})]];
+  const a=await app('main.js',{online:false,stored});await a.ready();
+  const button=a.elements.addButton;button.events.click();await a.flush();
+  assert.equal(a.alerts.length,0);assert.equal(button.disabled,false);assert.ok(button.classes.has('connection-failed'));
+  button.events.animationend();assert.equal(button.classes.has('connection-failed'),false);
+  button.events.click();assert.ok(button.classes.has('connection-failed'));
+  a.elements.itemList.children[0].events.pointerup({});await a.flush();assert.ok(a.elements.itemList.children[0].classes.has('is-bought-offline'));
+});
+test('reconnect succeeds without failure feedback; timeout leaves automatic reconnect working',async()=>{
+  const a=await app('main.js',{data:{one:{Name:'Kaffe',Shop:'Extra',Buy:true}}});await a.ready();
+  a.connect(false);const button=a.elements.addButton;button.events.click();await a.flush();
+  assert.equal(a.alerts.length,0);assert.equal(button.textContent,'Legg til');assert.equal(button.disabled,false);assert.equal(button.classes.has('connection-failed'),false);
+  a.connect(false);a.deny();let timeout;
+  a.window.setTimeout=(fn,ms)=>{assert.equal(ms,5000);timeout=fn;return 123;};
+  button.events.click();assert.equal(button.disabled,true);button.events.click();await a.flush();
+  assert.equal(a.alerts.length,0);assert.ok(button.classes.has('connection-failed'));assert.equal(button.disabled,false);
+  a.allow();button.events.animationend();
+  // A silent server keeps the listener alive; the timeout itself does not cancel it.
+  button.events.click();timeout();assert.ok(button.classes.has('connection-failed'));await a.flush();
+  a.connect(true);await a.flush();assert.equal(button.textContent,'Legg til');assert.equal(button.classes.has('connection-failed'),false);
 });

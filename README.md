@@ -1,6 +1,6 @@
 # ShoppingList-NoBackend
 
-Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **5** er definert i docs/js/version.js og vises som `v5` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. Installér appen som **Handleliste** fra Chrome. Offline viser den sist lagrede handlelisten og lar deg markere kjøp med overstrykning. Kjøp synkroniseres automatisk når Firebase-forbindelsen er tilbake. Første innlogging og caching krever internett.
+Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **6** er definert i docs/js/version.js og vises som `v6` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. Installér appen som **Handleliste** fra Chrome. Offline viser den sist lagrede handlelisten og lar deg markere kjøp med overstrykning. Kjøp synkroniseres automatisk når Firebase-forbindelsen er tilbake. Første innlogging og caching krever internett.
 
 ## Lokal kjøring
 
@@ -34,3 +34,5 @@ Bare to tillatte UID-er får tilgang i klienten og lokale regler. Logout er skju
 Manifest, service worker og ikoner publiseres fra docs/. Relative stier fungerer under /ShoppingList-NoBackend/. Datacachen inneholder bare varer som skal kjøpes og nødvendig metadata for ventende kjøp. Andre sider og funksjoner krever internett. Service worker cacher også statiske ressurser og Firebase SDK, men ingen auth- eller databasesvar. Appen sjekker etter oppdateringer ved oppstart og når den får fokus/blir synlig. En ferdig nedlastet oppdatering aktiveres automatisk og laster appvinduene på nytt. Ulagrede skjemafelt kan nullstilles; innlogging og ventende kjøp beholdes. Ved senere kodeendringer økes både APP_VERSION og service worker-cacheversjonen.
 
 Fra v4 bypasser precache nettleserens HTTP-cache for å unngå blanding av gamle moduler og ny HTML. Fra v5 lastes åpne Handleliste-vinduer automatisk på nytt når en ny service worker overtar. Ventende kjøp og persistent auth beholdes ved oppdatering.
+
+«Koble til internett» prøver databasen igjen uten popup. Ved manglende kontakt blinker knappen rødt to ganger (umiddelbart uten nett, ellers etter feil eller fem sekunder).

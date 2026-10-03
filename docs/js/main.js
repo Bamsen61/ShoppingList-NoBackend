@@ -12,6 +12,36 @@ let suspended = false;
 let unsubscribeMainListener;
 let unsubscribeConnection;
 let generation = 0;
+let reconnecting = false;
+let reconnectTimeout;
+
+function finishConnectionAttempt(success) {
+  if (!reconnecting) return;
+  reconnecting = false;
+  clearTimeout(reconnectTimeout);
+  const button = document.getElementById('addButton');
+  button.disabled = false;
+  button.classList.remove('connection-failed');
+  if (!success) {
+    void button.offsetWidth;
+    button.classList.add('connection-failed');
+  }
+}
+
+function retryConnection() {
+  if (reconnecting) return;
+  reconnecting = true;
+  const button = document.getElementById('addButton');
+  button.classList.remove('connection-failed');
+  button.disabled = true;
+  if (navigator.onLine === false) {
+    void setupRealtimeListener();
+    finishConnectionAttempt(false);
+    return;
+  }
+  reconnectTimeout = window.setTimeout(() => finishConnectionAttempt(false), 5000);
+  void setupRealtimeListener();
+}
 
 function renderItemList() {
   const list = document.getElementById('itemList');
@@ -91,6 +121,7 @@ async function syncPurchases() {
 
 function handleError(error) {
   console.error('Handleliste:', error);
+  finishConnectionAttempt(false);
   if (error.message === 'Not authenticated' || error.code === 'permission-denied') clearOfflineList();
   connected = false;
   renderItemList();
@@ -118,14 +149,18 @@ async function setupRealtimeListener() {
     unsubscribeConnection = onValue(ref(db, '.info/connected'), snapshot => {
       connected = snapshot.val() === true && navigator.onLine !== false;
       renderItemList();
-      if (connected) void syncPurchases();
+      if (connected) {
+        document.getElementById('addButton').classList.remove('connection-failed');
+        finishConnectionAttempt(true);
+        void syncPurchases();
+      }
     });
   } catch (error) { handleError(error); }
 }
 
 window.addEventListener('offline', () => { connected = false; renderItemList(); });
 window.addEventListener('online', () => { void setupRealtimeListener(); });
-window.addEventListener('pagehide', () => { suspended = true; cleanupRealtimeListener(); });
+window.addEventListener('pagehide', () => { suspended = true; finishConnectionAttempt(true); cleanupRealtimeListener(); });
 window.addEventListener('pageshow', event => {
   if (event.persisted) { suspended = false; connected = false; renderItemList(); void setupRealtimeListener(); }
 });
@@ -135,7 +170,10 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('personSelector').value = getFromStorage('person', 'Morten');
   document.getElementById('addButton').addEventListener('click', () => {
     if (connected && !syncing) window.location.href = 'markitemtobuy.html';
-    else if (!connected) { alert('Koble enheten til internett. Handlelisten synkroniseres automatisk.'); void setupRealtimeListener(); }
+    else if (!connected) retryConnection();
+  });
+  document.getElementById('addButton').addEventListener('animationend', () => {
+    document.getElementById('addButton').classList.remove('connection-failed');
   });
   renderItemList();
   void setupRealtimeListener();

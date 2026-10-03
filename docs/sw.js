@@ -1,4 +1,4 @@
-const CACHE = 'handleliste-shell-v5';
+const CACHE = 'handleliste-shell-v6';
 const BASE = new URL('./', self.location.href);
 const FILES = [
   'index.html', 'login.html', 'markitemtobuy.html', 'additemtodatabase.html', 'edititem.html',
