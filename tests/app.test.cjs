@@ -85,7 +85,7 @@ test('purchase uses default Morten, Oslo date, increments count and preserves te
   for(const person of [undefined,'Linh']) {
     const history=Array.from({length:10},(_,i)=>'2026-09-'+String(30-i).padStart(2,'0'));
     const a=await app('main.js',{person,data:{fixture:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:7,BoughtDate:history}}});await a.ready();
-    assert.equal(a.elements.appVersion.textContent, "v4");
+    assert.equal(a.elements.appVersion.textContent, "v5");
     a.elements.itemList.children[0].events.pointerup({});await a.flush();
     const fields=a.writes[0][2];assert.equal(fields.BoughtBy,person||'Morten');assert.equal(fields.BuyNumber,8);assert.equal(fields.Buy,false);
     assert.deepEqual(fields.BoughtDate,['2026-10-02',...history.slice(0,9)]);
@@ -132,7 +132,7 @@ test('publication contains only necessary app files and all local references res
   }
   const source=fs.readFileSync(path.join(root,'docs/js/firebase-init.js'),'utf8');assert.match(source,/ZDq6ZGvDVDafX8BVlWGRhBoSn9X2/);assert.match(source,/fmVOzYiAtsOUNnUE33VZbwHR0SG3/);
   assert.match(fs.readFileSync(path.join(root,'docs/index.html'),'utf8'),/<!-- <button onclick="logout\(\)"/);
-  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 4;/);
+  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 5;/);
 });
 
 test('offline restart shows only shopping rows, persists marks and prevents navigation/editing',async()=>{
@@ -205,14 +205,14 @@ test('service worker precaches shell/SDK, provides offline navigation and never 
   const events={},cached=new Map(),deleted=[],base='https://example.test/ShoppingList-NoBackend/';
   let offline=false,fetches=0;
   const cache={addAll:async requests=>{for(const request of requests) { assert.equal(request.cache,'no-store');cached.set(request.url,{url:request.url,installed:true}); }},match:async request=>cached.get(typeof request==='string'?request:request.url)};
-  const context=vm.createContext({URL,Request,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{}},addEventListener:(name,fn)=>events[name]=fn},
-    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v3','handleliste-shell-v4','another-app'],delete:async key=>deleted.push(key)},
+  const context=vm.createContext({URL,Request,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{},matchAll:async()=>[]},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},
+    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v4','handleliste-shell-v5','another-app'],delete:async key=>deleted.push(key)},
     fetch:async request=>{fetches++;if(offline) throw Error('offline');return {url:request.url,ok:true,installed:false};}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
   for(const url of cached.keys()) if(url.startsWith(base)) assert.ok(fs.existsSync(path.join(root,'docs',url.slice(base.length))),url);
   assert.ok(cached.has('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js'));
-  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v3']);
+  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v4']);
   function fetchEvent(url,mode='cors',method='GET') { let response;events.fetch({request:{url,mode,method},respondWith:p=>response=p});return response; }
   const online=await fetchEvent(base+'index.html','navigate');assert.equal(online.installed,true);
   offline=true;
@@ -229,26 +229,79 @@ test('new service worker cannot populate its shell with v2 modules from the HTTP
   const cache={addAll:async requests=>{
     for(const request of requests) {
       // Reproduce Chrome holding the old version.js in its separate HTTP cache.
-      const source=request.cache==='no-store' ? 'APP_VERSION = 4' : 'APP_VERSION = 2';
+      const source=request.cache==='no-store' ? 'APP_VERSION = 5' : 'APP_VERSION = 2';
       stored.set(request.url,source);
     }
   }};
-  const context=vm.createContext({URL,Request,self:{location:{href:base+'sw.js'},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>cache}});
+  const context=vm.createContext({URL,Request,self:{location:{href:base+'sw.js'},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>cache}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
-  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 4');
-  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 4');
+  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 5');
+  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 5');
 });
-test('new controller reloads the main page once and leaves forms intact',async()=>{
-  for(const pathname of ['/ShoppingList-NoBackend/index.html','/ShoppingList-NoBackend/','/ShoppingList-NoBackend/edititem.html']) {
-    const events={},registrations=[];let reloads=0;
-    const context=vm.createContext({URL,console,navigator:{onLine:true,serviceWorker:{addEventListener:(name,fn)=>events[name]=fn,register:async(url,options)=>registrations.push([url.href,options])}},
-      location:{pathname,reload:()=>reloads++,replace:()=>assert.fail('Online navigation must remain unchanged')},window:{addEventListener:()=>{}}});
-    const module=new vm.SourceTextModule(fs.readFileSync(path.join(root,'docs/js/pwa.js'),'utf8'),{context,initializeImportMeta:meta=>meta.url='https://example.test/ShoppingList-NoBackend/js/pwa.js'});
-    await module.link(()=>assert.fail('No external imports'));await module.evaluate();
-    events.controllerchange();events.controllerchange();
-    assert.equal(reloads,pathname.endsWith('edititem.html')?0:1);
-    assert.equal(registrations[0][0],'https://example.test/ShoppingList-NoBackend/sw.js');
-    assert.equal(registrations[0][1].updateViaCache,'none');
-  }
+
+async function updateApp({online=true,update=async()=>{},waiting=null,failRegistration=false}={}) {
+  const windowEvents={},documentEvents={},registration={waiting,update},registrations=[],logs=[];
+  function addEvent(map,name,fn) { (map[name] ||= []).push(fn); }
+  const navigator={onLine:online,serviceWorker:{register:async(url,options)=>{registrations.push([url.href,options]);if(failRegistration){failRegistration=false;throw Error('Registration network failure');}return registration;}}};
+  const document={visibilityState:'visible',addEventListener:(name,fn)=>addEvent(documentEvents,name,fn)};
+  const context=vm.createContext({URL,navigator,document,console:{warn:(...args)=>logs.push(args)},
+    location:{pathname:'/ShoppingList-NoBackend/index.html',replace:()=>assert.fail('Main page must remain available offline')},
+    window:{addEventListener:(name,fn)=>addEvent(windowEvents,name,fn)}});
+  const module=new vm.SourceTextModule(fs.readFileSync(path.join(root,'docs/js/pwa.js'),'utf8'),{context,initializeImportMeta:meta=>meta.url='https://example.test/ShoppingList-NoBackend/js/pwa.js'});
+  await module.link(()=>assert.fail('No external imports'));await module.evaluate();
+  const flush=()=>new Promise(resolve=>setImmediate(resolve));await flush();
+  async function emit(map,event){for(const fn of map[event]||[]) fn({persisted:true});await flush();}
+  return {navigator,document,registrations,registration,logs,flush,windowEvent:event=>emit(windowEvents,event),documentEvent:event=>emit(documentEvents,event)};
+}
+test('startup, focus, foreground, history restore and reconnect each check for app updates',async()=>{
+  let checks=0;const messages=[];
+  const a=await updateApp({update:async()=>checks++,waiting:{postMessage:data=>messages.push(plain(data))}});
+  assert.equal(checks,1);assert.equal(a.registrations[0][1].updateViaCache,'none');
+  assert.equal(a.registrations[0][0],'https://example.test/ShoppingList-NoBackend/sw.js');
+  await a.windowEvent('focus');assert.equal(checks,2);
+  a.document.visibilityState='hidden';await a.documentEvent('visibilitychange');assert.equal(checks,2);
+  a.document.visibilityState='visible';await a.documentEvent('visibilitychange');assert.equal(checks,3);
+  await a.windowEvent('pageshow');assert.equal(checks,4);
+  await a.windowEvent('online');assert.equal(checks,5);
+  assert.ok(messages.length>=5);assert.deepEqual(messages[0],{type:'SKIP_WAITING'});
+});
+test('offline and failed update checks preserve the installed app; simultaneous focus events coalesce',async()=>{
+  let checks=0;
+  const offline=await updateApp({online:false,update:async()=>checks++});await offline.windowEvent('focus');assert.equal(checks,0);
+  offline.navigator.onLine=true;await offline.windowEvent('online');assert.equal(checks,1);
+  const failed=await updateApp({update:async()=>{throw Error('Network unavailable');}});assert.equal(failed.logs.length,1);
+  let resolve,blocking=false;
+  const busy=await updateApp({update:async()=>{checks++;if(blocking) await new Promise(r=>resolve=r);}});
+  blocking=true;const before=checks;await busy.windowEvent('focus');await busy.windowEvent('focus');await busy.documentEvent('visibilitychange');
+  assert.equal(checks,before+1);resolve();await busy.flush();blocking=false;
+  await busy.windowEvent('focus');assert.equal(checks,before+2);
+});
+test('worker upgrades only its app windows without waiting for closure, after full precache',async()=>{
+  const events={},order=[],base='https://example.test/ShoppingList-NoBackend/';
+  const urls=[base+'index.html',base+'edititem.html?id=one','https://example.test/other-app/index.html','https://other.example/ShoppingList-NoBackend/index.html'];
+  const navigated=[];
+  const context=vm.createContext({URL,Request,self:{location:{href:base+'sw.js'},
+    addEventListener:(name,fn)=>events[name]=fn,skipWaiting:async()=>order.push('activate-request'),
+    clients:{claim:async()=>order.push('claim'),matchAll:async()=>urls.map(url=>({url,navigate:target=>{navigated.push(target);return new Promise(()=>{});}}))}},
+    caches:{open:async()=>({addAll:async()=>order.push('precache-ready')}),keys:async()=>['handleliste-shell-v4','another-app'],delete:async()=>order.push('cleanup')}});
+  vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
+  let task;events.install({waitUntil:p=>task=p});await task;
+  assert.deepEqual(order,['precache-ready','activate-request']);
+  events.activate({waitUntil:p=>task=p});await task;
+  assert.deepEqual(navigated,urls.slice(0,2));assert.deepEqual(order,['precache-ready','activate-request','cleanup','claim']);
+  events.message({data:{type:'SKIP_WAITING'},waitUntil:p=>task=p});await task;assert.equal(order.at(-1),'activate-request');
+});
+test('failed precache never activates an incomplete app',async()=>{
+  const events={};let activated=false;
+  const context=vm.createContext({URL,Request,self:{location:{href:'https://example.test/ShoppingList-NoBackend/sw.js'},addEventListener:(name,fn)=>events[name]=fn,skipWaiting:async()=>activated=true},
+    caches:{open:async()=>({addAll:async()=>{throw Error('Download failed');}})}});
+  vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
+  let task;events.install({waitUntil:p=>task=p});await assert.rejects(task,/Download failed/);assert.equal(activated,false);
+});
+
+test('registration failure at startup retries successfully on next focus',async()=>{
+  let checks=0;const a=await updateApp({failRegistration:true,update:async()=>checks++});
+  assert.equal(a.registrations.length,1);assert.equal(checks,0);assert.equal(a.logs.length,1);
+  await a.windowEvent('focus');assert.equal(a.registrations.length,2);assert.equal(checks,1);
 });

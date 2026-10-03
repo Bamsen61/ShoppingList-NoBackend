@@ -1,4 +1,4 @@
-const CACHE = 'handleliste-shell-v4';
+const CACHE = 'handleliste-shell-v5';
 const BASE = new URL('./', self.location.href);
 const FILES = [
   'index.html', 'login.html', 'markitemtobuy.html', 'additemtodatabase.html', 'edititem.html',
@@ -10,15 +10,31 @@ const SDK = ['app', 'auth', 'database'].map(name => 'https://www.gstatic.com/fir
 const ASSETS = [...FILES.map(file => new URL(file, BASE).href), ...SDK];
 // Bypass the HTTP cache: previous app modules must not enter the new shell cache.
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS.map(url => new Request(url, { cache: 'no-store' })))));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await cache.addAll(ASSETS.map(url => new Request(url, { cache: 'no-store' })));
+    // Activate only after the complete app shell is ready, including offline assets.
+    await self.skipWaiting();
+  })());
 });
-// A new worker waits for existing windows to close, avoiding mixed app versions.
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') event.waitUntil(self.skipWaiting());
+});
+// Upgrade open windows too, including v3/v4 clients without focus update checks.
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     for (const key of await caches.keys()) {
       if (key.startsWith('handleliste-shell-') && key !== CACHE) await caches.delete(key);
     }
     await self.clients.claim();
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windows) {
+      const url = new URL(client.url);
+      if (url.origin === BASE.origin && url.pathname.startsWith(BASE.pathname)) {
+        // Do not await navigation here: its fetch waits for activation to finish.
+        void client.navigate(client.url).catch(error => console.warn('App reload failed', error));
+      }
+    }
   })());
 });
 self.addEventListener('fetch', event => {

@@ -1,6 +1,6 @@
 # ShoppingList – prosjektbeskrivelse og driftsgrunnlag
 
-Dokumentversjon: 7
+Dokumentversjon: 8
 
 Sist kontrollert mot lokal kode: 2026-10-03
 
@@ -33,7 +33,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Målplattform: Android Chrome. Responsiv layout finnes; øvrig nettleserkompatibilitet er ikke bekreftet.
 * Ingen egen backend kjøres i repoet. Firebase Authentication og Realtime Database brukes direkte fra nettleseren.
 * PWA, service worker og lokal offline-handleliste er implementert. Android-installasjon og ekte auth/realtime gjenstår som manuell kontroll etter publisering.
-* Appversjon **4** er definert sentralt i `docs/js/version.js` og vises som `v4` på forsiden.
+* Appversjon **5** er definert sentralt i `docs/js/version.js` og vises som `v5` på forsiden.
 
 ## Formål
 
@@ -158,7 +158,7 @@ Retur går direkte til `index.html`, også etter opprettelse/avbryt av ny vare o
 
 Appnavnet er **Handleliste**, med blått embossed ikon og en stilisert handlevogn sett skrått forfra. Manifestet bruker relative `start_url`, `scope` og `id`, som gir riktig GitHub Pages-sti `/ShoppingList-NoBackend/` og fungerer ved lokal kjøring. `display: standalone` åpner installert app i eget vindu.
 
-Service worker cacher appsider, CSS, JavaScript, ikoner og Firebase SDK-modulene som trengs ved offline-oppstart. Auth- og databasesvar caches ikke av service worker. Første innlogging og lasting av handlelisten krever internett; offline virker først etter vellykket installasjon av service worker og lagring av listen. Ny service worker venter til åpne appvinduer er lukket før aktivering; gamle Handleliste-ressurscacher ryddes da. Fra appversjon 4 hentes alle precache-ressurser med `cache: no-store`, slik at eldre filer i nettleserens HTTP-cache ikke lagres i den nye service worker-cachen. Forsiden lastes på nytt én gang når en ny worker overtar; skjemaer avbrytes ikke.
+Service worker cacher appsider, CSS, JavaScript, ikoner og Firebase SDK-modulene som trengs ved offline-oppstart. Auth- og databasesvar caches ikke av service worker. Første innlogging og lasting av handlelisten krever internett; offline virker først etter vellykket installasjon av service worker og lagring av listen. Fra appversjon 5 sjekkes service worker eksplisitt ved oppstart, focus, pageshow, synlig visibilitychange og gjenopprettet nett. Samtidige sjekker samles mens en sjekk kjører. Ny worker aktiveres automatisk med skipWaiting først etter fullstendig precache; gamle Handleliste-ressurscacher ryddes ved aktivering. Fra appversjon 4 hentes alle precache-ressurser med `cache: no-store`, slik at eldre filer i nettleserens HTTP-cache ikke lagres i den nye service worker-cachen. Ny worker tar kontroll og laster åpne Handleliste-vinduer på nytt til samme URL, også eldre v3/v4-vinduer. Andre apper på samme origin berøres ikke. Dette kan nullstille ulagrede skjemafelt når en oppdatering aktiveres. Ingen reload gjøres når serverens worker er uendret. Uten nett eller ved mislykket nedlasting beholdes installert app; neste fokus/nett-hendelse prøver igjen. Innlogging, lokal handleliste og ventende kjøp beholdes. Første overgang fra v3/v4 krever én vanlig navigasjon/lasting av appadressen, siden disse versjonene ikke har fokus-sjekken; etter at v5 er lastet, gjelder automatisk fokus-sjekk ved senere oppdateringer.
 
 Når navigator eller Firebase melder manglende forbindelse, vises den lagrede handlelisten. Knappen heter «Koble til internett» og gir beskjed om å koble enheten til nett. Bare visning og merking av kjøp er tilgjengelig; redigering, andre sider og innstillingsendringer er sperret. Trykk merker varen med overstrykning og lagrer valgt person og Oslo-dato. Gjentatte trykk gir ikke flere kjøp. Lokal lagringsfeil gir beskjed uten å markere varen som lagret.
 
@@ -179,7 +179,7 @@ Ved gjenopprettet Firebase-forbindelse og autorisert auth leses hver ventende va
 | `docs/js/firebase-init.js` | Firebase-konfigurasjon, SDK, UID-allowlist, persistence og auth-funksjoner. |
 | `docs/js/common.js` | Lokal lagring, skriftstørrelse, sortering, langt trykk og navigasjon. |
 | `docs/js/dates.js` | Oslo-dato, datovalidering og kalenderbasert filter. |
-| `docs/js/version.js` | Sentralt appversjonsnummer, nå 4. |
+| `docs/js/version.js` | Sentralt appversjonsnummer, nå 5. |
 | `tests/app.test.cjs` | Automatiserte tester med isolert Firebase-/DOM-mock. |
 | `tools/README.md` | Upubliserte hjelpefiler og oppdaterte lokale lenker. |
 | `docs/js/main.js` | Realtime hovedliste, forbindelsesstatus og synkronisering av kjøp. |
@@ -279,6 +279,8 @@ Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjon
 Ved tilbakeføring reverseres den konkrete feilaktige committen med `git revert`, etter kontroll av lokale endringer. En eldre nettstedversjon reverserer ikke databaseendringer eller Firebase-regler. Før senere endringer i regler eller datamodell sikres gjeldende regler og nødvendige data separat.
 
 ## Endringslogg for prosjektfilen
+
+* **2026-10-03 – dokumentversjon 8, appversjon 5:** Oppdateringssjekk ved oppstart og fokus/foreground. Fullført ny service worker aktiveres automatisk og laster åpne Handleliste-vinduer på nytt; ingen tvungen lukking eller sletting av Chrome-data kreves. Offline-tilstand beholdes. Isolerte tester dekker lifecycle, gammel klient, feil og samtidige sjekker. Mobilkontroll gjenstår etter publisering.
 
 * **2026-10-03 – dokumentversjon 7, appversjon 4:** Rettet precache som kunne blande ny HTML med gammel JavaScript fra HTTP-cache og vise v2 med feil knapp. Ny ressurscache v4 hentes uten HTTP-cache; forsiden lastes på nytt når en ny service worker overtar. Isolerte regresjonstester lagt til. Android-verifikasjon gjenstår etter brukerens publisering.
 

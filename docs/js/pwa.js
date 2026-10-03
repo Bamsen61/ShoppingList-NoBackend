@@ -1,14 +1,31 @@
 if ('serviceWorker' in navigator) {
-  let reloading = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    // Reload the main page once so its modules match the installed shell.
-    if (!reloading && /\/(index\.html)?$/.test(location.pathname)) {
-      reloading = true;
-      location.reload();
-    }
+  let checking = false;
+  let registrationPromise;
+
+  async function checkForUpdate() {
+    if (navigator.onLine === false || checking) return;
+    checking = true;
+    try {
+      registrationPromise ||= navigator.serviceWorker.register(
+        new URL('../sw.js', import.meta.url), { updateViaCache: 'none' }
+      );
+      const registration = await registrationPromise;
+      registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+      await registration.update();
+      registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+    } catch (error) {
+      registrationPromise = null;
+      console.warn('App update unavailable; retaining installed version', error);
+    } finally { checking = false; }
+  }
+
+  window.addEventListener('focus', checkForUpdate);
+  window.addEventListener('pageshow', checkForUpdate);
+  window.addEventListener('online', checkForUpdate);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void checkForUpdate();
   });
-  navigator.serviceWorker.register(new URL('../sw.js', import.meta.url), { updateViaCache: 'none' })
-    .catch(error => console.error('Service worker registration failed', error));
+  void checkForUpdate();
 }
 // Subpages offer no offline operations, including when restored from history.
 function returnOfflineToList() {
