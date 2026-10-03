@@ -1,8 +1,8 @@
 # ShoppingList – prosjektbeskrivelse og driftsgrunnlag
 
-Dokumentversjon: 5
+Dokumentversjon: 6
 
-Sist kontrollert mot lokal kode: 2026-10-02
+Sist kontrollert mot lokal kode: 2026-10-03
 
 Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte krav til senere endringer. Krav merket som planlagt er ikke implementert. Opplysninger om Firebase-kontoer og aksepterte risikoer er bekreftet av brukeren; produksjonsnettstedet og aktive Firebase-innstillinger er ikke kontrollert av Codex. **Må Sjekkes** markerer gjenstående kontrollpunkter.
 
@@ -18,7 +18,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Hvis noe må testes av brukeren, be om kun én test av gangen og vent på svar.
 * Når jeg bruker "Du", "Deg" eller lignende, refererer dette til Codex ChatGPT.
 * Handleliste bruker Firebase-prosjektet `handleliste-3bdaa`. Endringer må ikke ødelegge data, regler eller innlogging for `/handleliste` eller andre apper som deler databasen.
-* Skill mellom implementert funksjonalitet og planer. Klargjøringsrunden er implementert. Neste kodeendring er PWA med internett påkrevd; offline-støtte og egen cache-strategi kommer senere.
+* Skill mellom implementert funksjonalitet og planer. PWA med lokal handleliste og synkronisering av offline-kjøp er implementert i appversjon 3. Android-kontroll gjenstår etter publisering.
 * Automatiserte tester skal bruke isolerte testdata og ikke skrive til produksjonsdatabasen. Hold manuelle tester så få som mulig.
 * Kontroller endringsomfang med `git diff`. Ikke endre andre filer enn oppgaven omfatter eller ta med uvedkommende lokale endringer i commit.
 
@@ -32,12 +32,12 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Statisk HTML, CSS og JavaScript med ES modules; ingen build-prosess eller `package.json`. Automatiserte tester bruker Node.js 22+ med innebygd `node:test` og VM-moduler.
 * Målplattform: Android Chrome. Responsiv layout finnes; øvrig nettleserkompatibilitet er ikke bekreftet.
 * Ingen egen backend kjøres i repoet. Firebase Authentication og Realtime Database brukes direkte fra nettleseren.
-* PWA, service worker og egen offline-cache er ikke implementert.
-* Appversjon **2** er definert sentralt i `docs/js/version.js` og vises som `v2` på forsiden.
+* PWA, service worker og lokal offline-handleliste er implementert. Android-installasjon og ekte auth/realtime gjenstår som manuell kontroll etter publisering.
+* Appversjon **3** er definert sentralt i `docs/js/version.js` og vises som `v3` på forsiden.
 
 ## Formål
 
-ShoppingList-NoBackend er en felles handleliste for to autoriserte brukere. Varer gjenbrukes mellom handleturer, organiseres etter butikk og registreres med kjøpshistorikk. Appen skal senere gjøres til en PWA (Progressive Web App).
+ShoppingList-NoBackend er en felles handleliste for to autoriserte brukere. Varer gjenbrukes mellom handleturer, organiseres etter butikk og registreres med kjøpshistorikk. Appen er en PWA (Progressive Web App) med navnet Handleliste.
 
 ## Funksjoner i appen
 
@@ -146,7 +146,7 @@ Kjøpsregistrering bruker `get()` etterfulgt av `update()`, uten transaction. Sa
 
 ## Lokal lagring og navigasjon
 
-* `localStorage` lagrer `person` og `fontSize`, ingen global `shop`-innstilling.
+* `localStorage` lagrer `person`, `fontSize` og `handleliste.offline.v1`. Sistnevnte inneholder bare handlelistevarenes nøkkel, navn og butikk, samt person/dato for ventende kjøp; ingen full varedatabase eller historikk.
 * Firebase håndterer persistent auth separat. Lokal lagring erstatter ikke varedatabasen.
 * Hovedsidens listener ryddes ved `pagehide` og kobles til igjen ved `pageshow` fra back/forward cache. "Legg til" rydder ved `beforeunload`.
 * Redigering bruker URL-parametrene `id` og `return`. Normal retur er `index.html` eller `markitemtobuy.html`.
@@ -154,21 +154,17 @@ Kjøpsregistrering bruker `get()` etterfulgt av `update()`, uten transaction. Sa
 
 Retur går direkte til `index.html`, også etter opprettelse/avbryt av ny vare og ved «Tilbake» fra «Legg til». Den separate `return=markitemtobuy.html`-returen fra redigering er beholdt. **Må Sjekkes**: Androids Back-knapp etter publisering av navigasjonsendringen.
 
-## PWA og cache – planlagt
+## PWA og cache – implementert i appversjon 3
 
-PWA er ikke implementert. Nåværende app har ingen manifestfil, service worker, service worker-registrering eller PWA-ikoner. `site/manifest.webmanifest` og `site/sw.js` fra dokumentmalen beskriver ikke dette repoet.
+Appnavnet er **Handleliste**, med blått embossed ikon og en stilisert handlevogn sett skrått forfra. Manifestet bruker relative `start_url`, `scope` og `id`, som gir riktig GitHub Pages-sti `/ShoppingList-NoBackend/` og fungerer ved lokal kjøring. `display: standalone` åpner installert app i eget vindu.
 
-Klargjøringsrunden er implementert før PWA. Første PWA-runde gir installasjon på Android Chrome og åpning i eget appvindu, med internett påkrevd. Offline-støtte og egen cache-strategi utsettes.
+Service worker cacher appsider, CSS, JavaScript, ikoner og Firebase SDK-modulene som trengs ved offline-oppstart. Auth- og databasesvar caches ikke av service worker. Første innlogging og lasting av handlelisten krever internett; offline virker først etter vellykket installasjon av service worker og lagring av listen. Ny service worker venter til åpne appvinduer er lukket før aktivering; gamle Handleliste-ressurscacher ryddes da.
 
-Før PWA-implementeringen må følgende konkretiseres:
+Når navigator eller Firebase melder manglende forbindelse, vises den lagrede handlelisten. Knappen heter «Koble til internett» og gir beskjed om å koble enheten til nett. Bare visning og merking av kjøp er tilgjengelig; redigering, andre sider og innstillingsendringer er sperret. Trykk merker varen med overstrykning og lagrer valgt person og Oslo-dato. Gjentatte trykk gir ikke flere kjøp. Lokal lagringsfeil gir beskjed uten å markere varen som lagret.
 
-* Manifest, ikoner og en eventuell service worker plasseres under `docs/` for publisering.
-* `start_url` og `scope` tilpasses GitHub Pages-stien `/ShoppingList-NoBackend/`.
-* Navn, ikoner, `display`, `theme_color` og `background_color` velges.
-* Første PWA-runde skal ikke legge til egen ressurscache eller kø for databaseoperasjoner uten internett. Behovet for service worker vurderes ut fra installasjonskravene ved implementering; dagens kode har ingen.
-* Installasjon og vanlig bruk med internett testes på Android Chrome. Innlogging, realtime og navigasjon må fungere både i nettleseren og i appvinduet.
+Ved gjenopprettet Firebase-forbindelse og autorisert auth leses hver ventende vare før kjøpsregistreringen oppdateres. Person/dato fra offline-kjøpet brukes, teller økes og inntil ti datoer beholdes. Varer som allerede er kjøpt eller slettet, kvitteres uten nytt kjøp eller gjenopprettelse. Ventende kjøp fjernes først etter bekreftet write; nettverksfeil beholder dem til ny forbindelse eller oppstart. Samtidighet med andre brukere håndteres som avtalt uten transaction. Logout og bekreftet manglende auth/tilgang tømmer den lokale listen.
 
-**Må Sjekkes**: Appnavn, ikonmotiv og farger er ikke valgt. Avklar disse før PWA-implementering. Offline-støtte, cache-strategi og tilhørende oppdateringsflyt kommer i en senere oppdatering.
+**Må Sjekkes**: Installasjon og oppstart i eget appvindu på Android Chrome, ekte login/realtime, offline etter lukking/ny oppstart, synkronisering og Back-navigasjon. Utfør én manuell test om gangen etter publisering. Automatiserte tester bruker kun isolerte fixtures.
 
 ## Filstruktur
 
@@ -183,10 +179,15 @@ Før PWA-implementeringen må følgende konkretiseres:
 | `docs/js/firebase-init.js` | Firebase-konfigurasjon, SDK, UID-allowlist, persistence og auth-funksjoner. |
 | `docs/js/common.js` | Lokal lagring, skriftstørrelse, sortering, langt trykk og navigasjon. |
 | `docs/js/dates.js` | Oslo-dato, datovalidering og kalenderbasert filter. |
-| `docs/js/version.js` | Sentralt appversjonsnummer, nå 2. |
+| `docs/js/version.js` | Sentralt appversjonsnummer, nå 3. |
 | `tests/app.test.cjs` | Automatiserte tester med isolert Firebase-/DOM-mock. |
 | `tools/README.md` | Upubliserte hjelpefiler og oppdaterte lokale lenker. |
-| `docs/js/main.js` | Realtime hovedliste og registrering av kjøp. |
+| `docs/js/main.js` | Realtime hovedliste, forbindelsesstatus og synkronisering av kjøp. |
+| `docs/js/offline-list.js` | Minimal lokal handleliste og ventende kjøp. |
+| `docs/js/pwa.js` | Service worker-registrering og offline-retur fra andre sider. |
+| `docs/sw.js` | Versjonert ressurscache; ingen caching av databasesvar. |
+| `docs/manifest.webmanifest` | Handleliste, standalone og relative GitHub Pages-stier. |
+| `docs/icons/` | Genererte PNG-appikoner på 192 og 512 px. |
 | `docs/js/markitemtobuy.js` | Realtime tilgjengelige varer, 50-dagersfilter, søk og bokstavnavigasjon. |
 | `docs/js/additemtodatabase.js` | Opprettelse med Firebase `push()`. |
 | `docs/js/edititem.js` | Lasting, oppdatering og sletting av enkeltvare. |
@@ -213,10 +214,10 @@ Før PWA-implementeringen må følgende konkretiseres:
 
 ## Dokumentasjon og sikkerhetspunkter
 
-* Eksisterende README, Firebase-veiledninger og TESTING.md er revidert mot appversjon 2 og lokale regler. Utdaterte eksempler med offentlig tilgang og generell auth != null er fjernet fra gjeldende veiledninger. Ingen regler er endret eller deployet.
+* Eksisterende README, Firebase-veiledninger og TESTING.md er revidert mot appversjon 3 og lokale regler. Utdaterte eksempler med offentlig tilgang og generell auth != null er fjernet fra gjeldende veiledninger. Ingen regler er endret eller deployet.
 * SECURITY_DEPLOYMENT.md beholder tidligere aksepterte kontoopplysninger. Risikoen gjenåpnes ikke; passord gjentas ikke her.
 * **Må Sjekkes**: Faktiske API key restrictions og authorized domains ved relevante auth-/konfigurasjonsendringer. De beskrives ikke som verifisert.
-* Publiseringsmappen docs/ inneholder bare de fem appsidene, felles CSS og åtte JavaScript-moduler. Diagnosesider, google-services.json og CountDown.html er bevart i tools/. auth-persistence-test.html peker nå på ../docs/js/firebase-init.js; tools/README.md beskriver lokal bruk. Historiske anonymous-auth-diagnoser er ikke gjeldende oppsettsinstruksjoner.
+* Publiseringsmappen docs/ inneholder appsidene, felles CSS, JavaScript-moduler, manifest, service worker og appikoner. Diagnosesider, google-services.json og CountDown.html er bevart i tools/. auth-persistence-test.html peker nå på ../docs/js/firebase-init.js; tools/README.md beskriver lokal bruk. Historiske anonymous-auth-diagnoser er ikke gjeldende oppsettsinstruksjoner.
 
 ## Lokal kjøring og verifikasjon
 
@@ -252,27 +253,6 @@ tests/app.test.cjs kjører appmodulene med isolerte fixtures, DOM-mock og in-mem
 
 Testene dekker standardperson, Oslo-midnatt/sommertid, inklusive 50-dagersfilter, norsk sortering, navigasjon, vareoperasjoner, avviste writes ved auth-feil, søk/bokstavnavigasjon og nødvendige publiseringsfiler. TESTING.md beskriver kommando og begrensninger. Mocks bekrefter ikke aktive regler, ekte auth/realtime eller Androids Back-knapp. Bruk lokal emulator hvis integrasjonstester blir nødvendige.
 
-## Neste kodeendringer – vedtatt rekkefølge
-
-Punkt 1 er implementert i appversjon 1. Punkt 2 er neste planlagte kodeendring.
-
-### 1. Klargjøring før PWA – gjennomført 2026-10-02
-
-* Sentralt appversjonsnummer `1` er innført uten visning i GUI. Det økes med 1 per senere kodeendringsrunde og er uavhengig av dokumentversjonen.
-* Standardverdien for `BoughtBy` er endret fra `Anonymous` til `Morten`.
-* Norsk lokal dato brukes ved nye kjøp og i 50-dagersfilteret. Eksisterende historikk og datoformat er beholdt.
-* `returnToMainPage()` går direkte til forsiden.
-* Eksisterende veiledninger og testdokumentasjon er revidert. UID-allowlist, skjult logout og akseptert håndtering av samtidige kjøp er beholdt.
-* Filer som ikke trengs av appen er flyttet fra `docs/` til `tools/`, uten sletting.
-* Automatiserte tester med isolerte data er etablert; 9 tester passerer uten nettverk eller writes til produksjonsdatabasen.
-
-Klargjøringen er gjennomført: relevante automatiserte tester passerer, dokumentasjonen beskriver faktisk kode og publiseringsmappen er kontrollert. Ingen endring i datamodell, aktive Firebase-regler eller eksisterende varer er utført. Androids Back-knapp gjenstår som avgrenset manuell kontroll etter tilgjengeliggjøring.
-
-### 2. PWA med internett påkrevd
-
-* Avklar appnavn, ikoner og farger, og implementer manifest/installasjon med riktig GitHub Pages-sti.
-* Kontroller installasjon og oppstart i eget appvindu på Android Chrome samt eksisterende login, realtime og navigasjon.
-* Øk appversjonen og oppdater dokumentasjonen. Offline-støtte og egen cache-strategi inngår i en senere oppdatering.
 
 ## Publisering og tilbakeføring
 
@@ -294,11 +274,13 @@ Ved avtalt publisering fra `main`:
 git push origin main
 ```
 
-Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjonsfunksjon. Manuell mobiltest gis én oppgave av gangen. Ingen commit, push eller Firebase-deploy er utført av Codex i denne versjonsvisningsrunden.
+Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjonsfunksjon. Manuell mobiltest gis én oppgave av gangen. Ingen commit, push eller Firebase-deploy er utført av Codex i denne PWA-runden.
 
 Ved tilbakeføring reverseres den konkrete feilaktige committen med `git revert`, etter kontroll av lokale endringer. En eldre nettstedversjon reverserer ikke databaseendringer eller Firebase-regler. Før senere endringer i regler eller datamodell sikres gjeldende regler og nødvendige data separat.
 
 ## Endringslogg for prosjektfilen
+
+* **2026-10-03 – dokumentversjon 6, appversjon 3:** PWA og lokal offline-handleliste implementert med ventende kjøp, forbindelsesstatus, automatisk synkronisering og appikoner. Utdaterte PWA-planer og gjennomført klargjøringsseksjon fjernet; relevant funksjonalitet beholdt i fagseksjonene. Android-verifikasjon gjenstår. Ingen produksjonsdata, Firebase-regler eller kontoendringer utført.
 
 * **2026-10-02 – dokumentversjon 5, appversjon 2:** Versjonen vises høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget og uten ekstra høyde. Versjonen hentes fra det sentrale appversjonsnummeret.
 

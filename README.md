@@ -1,6 +1,6 @@
 # ShoppingList-NoBackend
 
-Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **2** er definert i docs/js/version.js og vises som `v2` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. PWA og offline-støtte er planlagt.
+Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **3** er definert i docs/js/version.js og vises som `v3` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. Installér appen som **Handleliste** fra Chrome. Offline viser den sist lagrede handlelisten og lar deg markere kjøp med overstrykning. Kjøp synkroniseres automatisk når Firebase-forbindelsen er tilbake. Første innlogging og caching krever internett.
 
 ## Lokal kjøring
 
@@ -28,3 +28,7 @@ Bare to tillatte UID-er får tilgang i klienten og lokale regler. Logout er skju
 ## Publisering
 
 .github/workflows/deploy.yml publiserer bare docs/ ved push til main eller workflow_dispatch. tools/ og tests/ publiseres ikke. Workflowen kjører ikke tester eller regeldeploy. Ingen build er nødvendig.
+
+## PWA og oppdatering
+
+Manifest, service worker og ikoner publiseres fra docs/. Relative stier fungerer under /ShoppingList-NoBackend/. Datacachen inneholder bare varer som skal kjøpes og nødvendig metadata for ventende kjøp. Andre sider og funksjoner krever internett. Service worker cacher også statiske ressurser og Firebase SDK, men ingen auth- eller databasesvar. Lukk alle appvinduer/faner og åpne igjen for å aktivere en ferdig nedlastet oppdatering. Ved senere kodeendringer økes både APP_VERSION og service worker-cacheversjonen.

@@ -240,3 +240,5 @@ button:active {
 .button-danger:hover {
   background-color: #b02a37;
 }
+
+.is-bought-offline { text-decoration: line-through; opacity: 0.6; }

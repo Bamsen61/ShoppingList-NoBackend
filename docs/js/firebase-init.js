@@ -1,3 +1,4 @@
+import { clearOfflineList } from './offline-list.js';
 // js/firebase-init.js
 
 import { APP_VERSION } from "./version.js";
@@ -132,6 +133,7 @@ async function signInUser(email, password) {
 async function signOutUser() {
   try {
     await signOut(auth);
+    clearOfflineList();
     isAuthenticated = false;
     console.log("✅ User signed out");
     window.location.href = 'login.html';

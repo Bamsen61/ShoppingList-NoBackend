@@ -15,25 +15,26 @@ class Element {
   scrollIntoView() { this.scrolled=true; }
 }
 
-async function app(entry, { data={}, person, now='2026-10-01T22:30:00Z', search='' }={}) {
+async function app(entry, { data={}, person, now='2026-10-01T22:30:00Z', search='', online=true, stored=[], failWrite=false }={}) {
   const records=structuredClone(data), writes=[], alerts=[], routes=[], elements={}, documentEvents={}, windowEvents={}, logs=[];
-  const storage=new Map(person ? [['person',person]] : []);
+  const storage=new Map(stored); if(person) storage.set('person',person);
+  const navigator={onLine:online};
   const listeners=[];
   const document={referrer:'https://example.test/markitemtobuy.html', body:new Element(),
     getElementById(id) { if(elements[id]) return elements[id]; for(const e of Object.values(elements)) { const found=e.children.find(c=>c.id===id); if(found) return found; } return elements[id]=new Element(); },
     createElement:()=>new Element(), addEventListener:(name,fn)=>documentEvents[name]=fn};
   const window={location:{search,replace:url=>routes.push(url),origin:'https://example.test'},history:{length:8,back:()=>{throw Error('History back must not be used');}},addEventListener:(name,fn)=>windowEvents[name]=fn,setTimeout};
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [now])); } }
-  const context=vm.createContext({document,window,Date:Clock,Intl,URLSearchParams,URL,console:{log:(...args)=>logs.push(args),warn:(...args)=>logs.push(args),error:(...args)=>logs.push(args)},setTimeout,clearTimeout,
+  const context=vm.createContext({document,window,navigator,Date:Clock,Intl,URLSearchParams,URL,console:{log:(...args)=>logs.push(args),warn:(...args)=>logs.push(args),error:(...args)=>logs.push(args)},setTimeout,clearTimeout,
     localStorage:{getItem:key=>storage.get(key),setItem:(key,val)=>storage.set(key,val)},alert:msg=>alerts.push(msg),confirm:()=>true});
   let authorized=true;
   const firebase={db:{isolated:true},ref:(db,key)=>{assert.equal(db.isolated,true);return key;},
     waitForAuth:async()=>{if(!authorized) throw Error('Not authenticated');},
     get:async key=>({exists:()=>Boolean(records[key.split('/')[1]]),val:()=>structuredClone(records[key.split('/')[1]])}),
-    update:async(key,fields)=>{writes.push(['update',key,plain(fields)]);Object.assign(records[key.split('/')[1]],plain(fields));},
+    update:async(key,fields)=>{if(failWrite) throw Error('Network write failed');writes.push(['update',key,plain(fields)]);Object.assign(records[key.split('/')[1]],plain(fields));},
     push:async(key,item)=>{writes.push(['push',key,plain(item)]);records.fixtureNew=plain(item);},
     remove:async key=>{writes.push(['remove',key]);delete records[key.split('/')[1]];},
-    onValue:(key,fn)=>{listeners.push(fn);fn({val:()=>structuredClone(records)});return ()=>{};},set:()=>{},child:()=>{},signOutUser:()=>{}};
+    onValue:(key,fn)=>{const listener={key,fn,active:true};listeners.push(listener);fn({val:()=>key==='.info/connected'?navigator.onLine:structuredClone(records)});return ()=>listener.active=false;},set:()=>{},child:()=>{},signOutUser:()=>{}};
   const mock=new vm.SyntheticModule(Object.keys(firebase),function(){for(const [key,val] of Object.entries(firebase)) this.setExport(key,val);},{context});
   const modules=new Map();
   function load(file) {
@@ -50,7 +51,7 @@ async function app(entry, { data={}, person, now='2026-10-01T22:30:00Z', search=
   await module.evaluate();
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   const ready=async()=>{if(documentEvents.DOMContentLoaded) await documentEvents.DOMContentLoaded(); if(windowEvents.DOMContentLoaded) await windowEvents.DOMContentLoaded(); await flush();};
-  return {module,records,writes,alerts,routes,elements,document,window,ready,flush,logs,deny:()=>authorized=false,emit:()=>listeners.forEach(fn=>fn({val:()=>structuredClone(records)}))};
+  return {module,records,writes,alerts,routes,elements,document,window,windowEvents,navigator,storage,ready,flush,logs,allow:()=>authorized=true,deny:()=>authorized=false,emit:()=>listeners.filter(l=>l.active&&l.key==='handleliste').forEach(l=>l.fn({val:()=>structuredClone(records)})),connect:value=>listeners.filter(l=>l.active&&l.key==='.info/connected').forEach(l=>l.fn({val:()=>value}))};
 }
 
 test('Oslo date around midnight and daylight saving changes',async()=>{
@@ -84,7 +85,7 @@ test('purchase uses default Morten, Oslo date, increments count and preserves te
   for(const person of [undefined,'Linh']) {
     const history=Array.from({length:10},(_,i)=>'2026-09-'+String(30-i).padStart(2,'0'));
     const a=await app('main.js',{person,data:{fixture:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:7,BoughtDate:history}}});await a.ready();
-    assert.equal(a.elements.appVersion.textContent, "v2");
+    assert.equal(a.elements.appVersion.textContent, "v3");
     a.elements.itemList.children[0].events.pointerup({});await a.flush();
     const fields=a.writes[0][2];assert.equal(fields.BoughtBy,person||'Morten');assert.equal(fields.BuyNumber,8);assert.equal(fields.Buy,false);
     assert.deepEqual(fields.BoughtDate,['2026-10-02',...history.slice(0,9)]);
@@ -121,7 +122,7 @@ test('authentication rejection prevents writes for create, purchase, add, edit a
 });
 test('publication contains only necessary app files and all local references resolve',()=>{
   function files(dir) { return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?files(path.join(dir,e.name)):[path.join(dir,e.name)]); }
-  const expected=['additemtodatabase.html','edititem.html','index.html','login.html','markitemtobuy.html','css/style.css',...['additemtodatabase','common','dates','edititem','firebase-init','main','markitemtobuy','version'].map(n=>'js/'+n+'.js')].sort();
+  const expected=['additemtodatabase.html','edititem.html','index.html','login.html','markitemtobuy.html','css/style.css','manifest.webmanifest','sw.js','icons/icon-192.png','icons/icon-512.png',...['offline-list','pwa','additemtodatabase','common','dates','edititem','firebase-init','main','markitemtobuy','version'].map(n=>'js/'+n+'.js')].sort();
   const actual=files(path.join(root,'docs')).map(f=>path.relative(path.join(root,'docs'),f).replaceAll('\\','/')).sort();assert.deepEqual(actual,expected);
   for(const file of files(path.join(root,'docs'))) {
     const text=fs.readFileSync(file,'utf8');
@@ -131,5 +132,94 @@ test('publication contains only necessary app files and all local references res
   }
   const source=fs.readFileSync(path.join(root,'docs/js/firebase-init.js'),'utf8');assert.match(source,/ZDq6ZGvDVDafX8BVlWGRhBoSn9X2/);assert.match(source,/fmVOzYiAtsOUNnUE33VZbwHR0SG3/);
   assert.match(fs.readFileSync(path.join(root,'docs/index.html'),'utf8'),/<!-- <button onclick="logout\(\)"/);
-  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 2;/);
+  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 3;/);
+});
+
+test('offline restart shows only shopping rows, persists marks and prevents navigation/editing',async()=>{
+  const first=await app('main.js',{person:'Linh',data:{coffee:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:4,BoughtDate:['2026-09-01']},old:{Name:'Te',Buy:false}}});
+  await first.ready();
+  const cache=JSON.parse(first.storage.get('handleliste.offline.v1'));
+  assert.deepEqual(cache.items,[{id:'coffee',Name:'Kaffe',Shop:'Extra'}]);
+  const offline=await app('main.js',{online:false,person:'Linh',stored:[...first.storage]});await offline.ready();
+  assert.equal(offline.elements.addButton.textContent,'Koble til internett');
+  offline.elements.addButton.events.click();assert.equal(offline.window.location.href,undefined);
+  const row=offline.elements.itemList.children[0];row.events.pointerup({});await offline.flush();
+  assert.ok(offline.elements.itemList.children[0].classes.has('is-bought-offline'));
+  offline.elements.itemList.children[0].events.pointerup({});await offline.flush();
+  assert.equal(offline.writes.length,0);
+  const restarted=await app('main.js',{stored:[...offline.storage],online:false});await restarted.ready();
+  assert.ok(restarted.elements.itemList.children[0].classes.has('is-bought-offline'));
+  assert.equal(restarted.elements.personSelector.disabled,true);
+});
+test('offline purchase syncs once with original person/date and latest database history',async()=>{
+  const stored=[['handleliste.offline.v1',JSON.stringify({items:[{id:'coffee',Name:'Kaffe',Shop:'Extra'}],pending:{coffee:{person:'Linh',date:'2026-10-01'}}})]];
+  const a=await app('main.js',{stored,online:false,data:{coffee:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:4,BoughtDate:['2026-09-01']}}});await a.ready();
+  a.navigator.onLine=true;a.windowEvents.online();await a.flush();await a.flush();
+  const connected=a;
+  assert.deepEqual(connected.writes[0][2],{Buy:false,BoughtBy:'Linh',BoughtDate:['2026-10-01','2026-09-01'],BuyNumber:5});
+  connected.connect(true);await connected.flush();assert.equal(connected.writes.length,1);
+  assert.equal(JSON.parse(connected.storage.get('handleliste.offline.v1')).items.length,0);
+  assert.equal(connected.elements.addButton.textContent,'Legg til');
+});
+test('failed synchronization retains purchases across reload and never recreates deleted items',async()=>{
+  const state={items:[{id:'coffee',Name:'Kaffe',Shop:'Extra'}],pending:{coffee:{person:'Morten',date:'2026-10-01'}}};
+  const a=await app('main.js',{stored:[['handleliste.offline.v1',JSON.stringify(state)]],failWrite:true,data:{coffee:{Name:'Kaffe',Buy:true}}});await a.ready();await a.flush();
+  assert.equal(a.writes.length,0);assert.ok(JSON.parse(a.storage.get('handleliste.offline.v1')).pending.coffee);
+  const removed=await app('main.js',{stored:[...a.storage],data:{}});await removed.ready();await removed.flush();
+  assert.equal(removed.writes.length,0);assert.deepEqual(JSON.parse(removed.storage.get('handleliste.offline.v1')).pending,{});
+  const acknowledged=await app('main.js',{stored:[['handleliste.offline.v1',JSON.stringify(state)]],data:{coffee:{Buy:false,BuyNumber:5}}});await acknowledged.ready();await acknowledged.flush();
+  assert.equal(acknowledged.writes.length,0);assert.equal(acknowledged.records.coffee.BuyNumber,5);
+});
+test('Firebase disconnection changes controls even while browser reports online; realtime cache excludes history',async()=>{
+  const a=await app('main.js',{data:{coffee:{Name:'Kaffe',Shop:'Extra',Buy:true}}});await a.ready();
+  a.connect(false);assert.equal(a.elements.addButton.textContent,'Koble til internett');
+  a.elements.itemList.children[0].events.pointerup({});await a.flush();assert.equal(a.writes.length,0);
+  a.records.tea={Name:'Te',Shop:'Kiwi',Buy:true,BoughtDate:['2026-09-01']};a.emit();
+  assert.equal(JSON.parse(a.storage.get('handleliste.offline.v1')).items.length,2);
+  a.connect(true);await a.flush();await a.flush();assert.equal(a.writes.length,1);
+});
+test('PWA manifest resolves within GitHub Pages subpath and PNG icons have required dimensions',()=>{
+  const manifest=JSON.parse(fs.readFileSync(path.join(root,'docs/manifest.webmanifest'),'utf8'));
+  const base='https://bamsen61.github.io/ShoppingList-NoBackend/manifest.webmanifest';
+  assert.equal(manifest.name,'Handleliste');assert.equal(manifest.display,'standalone');
+  assert.equal(new URL(manifest.scope,base).pathname,'/ShoppingList-NoBackend/');
+  assert.equal(new URL(manifest.start_url,base).pathname,'/ShoppingList-NoBackend/index.html');
+  for(const icon of manifest.icons){const png=fs.readFileSync(path.join(root,'docs',icon.src));const size=Number(icon.sizes.split('x')[0]);assert.equal(png.readUInt32BE(16),size);assert.equal(png.readUInt32BE(20),size);}
+});
+
+test('rapid purchases during sync are all drained without a second reconnect',async()=>{
+  const a=await app('main.js',{data:{one:{Name:'Kaffe',Shop:'Extra',Buy:true},two:{Name:'Te',Shop:'Extra',Buy:true}}});await a.ready();
+  a.elements.itemList.children[0].events.pointerup({});
+  a.elements.itemList.children[1].events.pointerup({});
+  await a.flush();await a.flush();assert.equal(a.writes.length,2);
+  assert.deepEqual(JSON.parse(a.storage.get('handleliste.offline.v1')).pending,{});
+});
+test('pagehide unsubscribes listeners; back-forward restoration reconnects once',async()=>{
+  const a=await app('main.js',{data:{one:{Name:'Kaffe',Buy:true}}});await a.ready();
+  a.windowEvents.pagehide();a.records.two={Name:'Te',Buy:true};a.emit();assert.equal(a.elements.itemList.children.length,1);
+  a.windowEvents.pageshow({persisted:true});await a.flush();assert.equal(a.elements.itemList.children.length,2);
+  a.connect(false);a.elements.itemList.children[0].events.pointerup({});await a.flush();assert.equal(a.writes.length,0);
+  a.connect(true);await a.flush();await a.flush();assert.equal(a.writes.length,1);
+});
+test('service worker precaches shell/SDK, provides offline navigation and never caches database/auth traffic',async()=>{
+  const events={},cached=new Map(),deleted=[],base='https://example.test/ShoppingList-NoBackend/';
+  let offline=false,fetches=0;
+  const cache={addAll:async urls=>{for(const url of urls) cached.set(url,{url,installed:true});},match:async request=>cached.get(typeof request==='string'?request:request.url)};
+  const context=vm.createContext({URL,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{}},addEventListener:(name,fn)=>events[name]=fn},
+    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v2','handleliste-shell-v3','another-app'],delete:async key=>deleted.push(key)},
+    fetch:async request=>{fetches++;if(offline) throw Error('offline');return {url:request.url,ok:true,installed:false};}});
+  vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
+  let task;events.install({waitUntil:p=>task=p});await task;
+  for(const url of cached.keys()) if(url.startsWith(base)) assert.ok(fs.existsSync(path.join(root,'docs',url.slice(base.length))),url);
+  assert.ok(cached.has('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js'));
+  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v2']);
+  function fetchEvent(url,mode='cors',method='GET') { let response;events.fetch({request:{url,mode,method},respondWith:p=>response=p});return response; }
+  const online=await fetchEvent(base+'index.html','navigate');assert.equal(online.installed,true);
+  offline=true;
+  const fallback=await fetchEvent(base+'edititem.html?id=one','navigate');assert.equal(fallback.url,base+'index.html');
+  const modules=await fetchEvent(base+'js/main.js');assert.equal(modules.installed,true);
+  const sdk=await fetchEvent('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js');assert.equal(sdk.installed,true);
+  for(const url of ['https://handleliste-3bdaa-default-rtdb.europe-west1.firebasedatabase.app/handleliste.json','https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword',base+'unlisted.json','https://example.test/other-app/index.html']) assert.equal(fetchEvent(url),undefined);
+  assert.equal(fetchEvent(base+'js/main.js','cors','POST'),undefined);
+  assert.equal(fetches,2);
 });

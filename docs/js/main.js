@@ -1,204 +1,145 @@
-// js/main.js
+import { APP_VERSION } from './version.js';
+import { getOsloDate } from './dates.js';
+import { db, ref, update, get, onValue, waitForAuth, signOutUser } from './firebase-init.js';
+import { getFromStorage, applySavedFontSize, saveToStorage, updateFontSize,
+  attachLongPress, compareItemsByShopThenName } from './common.js';
+import { cachedItems, cacheItems, queuePurchase, pendingPurchases,
+  isPending, acknowledgePurchase, clearOfflineList } from './offline-list.js';
 
-import { APP_VERSION } from "./version.js";
-import { getOsloDate } from "./dates.js";
+let connected = false;
+let syncing = false;
+let suspended = false;
+let unsubscribeMainListener;
+let unsubscribeConnection;
+let generation = 0;
 
-import { db, ref, update, get, child, onValue, waitForAuth, signOutUser } from "./firebase-init.js";
-import {
-  getFromStorage,
-  applySavedFontSize,
-  saveToStorage,
-  updateFontSize,
-  attachLongPress,
-  compareItemsByShopThenName
-} from "./common.js";
-
-// Wait for DOM to be ready before getting elements
-let itemList;
-let unsubscribeMainListener = null; // Store the listener to clean up later
-
-function getItemList() {
-  if (!itemList) {
-    itemList = document.getElementById("itemList");
-    if (!itemList) {
-      console.error("❌ ERROR: Could not find itemList element!");
-      return null;
+function renderItemList() {
+  const list = document.getElementById('itemList');
+  list.innerHTML = '';
+  const items = [...cachedItems()].sort(compareItemsByShopThenName);
+  if (!items.length) {
+    const row = document.createElement('li');
+    row.textContent = connected ? 'Ingen varer på handlelisten.' : 'Ingen handleliste lagret. Koble til internett først.';
+    list.appendChild(row);
+  }
+  for (const item of items) {
+    const row = document.createElement('li');
+    row.classList.add('item-row');
+    if (isPending(item.id)) row.classList.add('is-bought-offline');
+    for (const [field, className] of [['Name', 'item-name'], ['Shop', 'item-shop']]) {
+      const span = document.createElement('span');
+      span.classList.add(className);
+      span.textContent = item[field] || '';
+      row.appendChild(span);
     }
-  }
-  return itemList;
-}
-
-function renderItemList(items) {
-  const itemListElement = getItemList();
-  if (!itemListElement) {
-    console.error("❌ Cannot render items: itemList element not found");
-    return;
-  }
-
-  itemListElement.innerHTML = "";
-
-  if (items.length === 0) {
-    const li = document.createElement("li");
-    li.style.padding = "1em";
-    li.style.textAlign = "center";
-    li.style.color = "#666";
-    li.textContent = "📝 No items to buy yet. Click 'Add' to add items.";
-    itemListElement.appendChild(li);
-    return;
-  }
-
-  items.forEach((item) => {
-    const li = document.createElement("li");
-    li.classList.add("item-row");
-
-    const nameSpan = document.createElement("span");
-    nameSpan.classList.add("item-name");
-    nameSpan.textContent = item.Name || "Unnamed item";
-
-    const shopSpan = document.createElement("span");
-    shopSpan.classList.add("item-shop");
-    shopSpan.textContent = item.Shop || "No shop";
-
-    li.appendChild(nameSpan);
-    li.appendChild(shopSpan);
-
-    attachLongPress(li, {
+    attachLongPress(row, {
       onClick: () => markItemAsBought(item.id),
-      onLongPress: () => openEditItem(item.id)
+      onLongPress: () => {
+        if (connected && !syncing && !isPending(item.id)) {
+          window.location.href = 'edititem.html?id=' + encodeURIComponent(item.id) + '&return=index.html';
+        } else if (!connected) markItemAsBought(item.id);
+      }
     });
-
-    itemListElement.appendChild(li);
-  });
+    list.appendChild(row);
+  }
+  document.getElementById('addButton').textContent = connected ? 'Legg til' : 'Koble til internett';
+  document.getElementById('personSelector').disabled = !connected;
+  document.getElementById('fontSize').disabled = !connected;
 }
 
-function markItemAsBought(itemId) {
-  waitForAuth()
-    .then(() => {
-      const itemRef = ref(db, `handleliste/${itemId}`);
-      return get(itemRef);
-    })
-    .then(snapshot => {
-      if (snapshot.exists()) {
+async function markItemAsBought(id) {
+  if (isPending(id)) return;
+  // Online clicks still require authorized auth before a purchase is queued.
+  if (connected) {
+    try { await waitForAuth(); }
+    catch (error) { handleError(error); return; }
+  }
+  if (!queuePurchase(id, getFromStorage('person', 'Morten'), getOsloDate())) {
+    alert('Kunne ikke lagre kjøpet lokalt. Prøv igjen når lokal lagring er tilgjengelig.');
+    return;
+  }
+  renderItemList();
+  await syncPurchases();
+}
+
+async function syncPurchases() {
+  if (!connected || syncing || suspended) return;
+  syncing = true;
+  try {
+    await waitForAuth();
+    while (pendingPurchases().length) {
+      const [id, purchase] = pendingPurchases()[0];
+      if (!connected || suspended) break;
+      const itemRef = ref(db, 'handleliste/' + id);
+      const snapshot = await get(itemRef);
+      if (!connected || suspended) break;
+      if (snapshot.exists() && snapshot.val().Buy === true) {
         const item = snapshot.val();
-        const currentDate = getOsloDate();
-        const newBoughtDate = [currentDate, ...(item.BoughtDate || [])].slice(0, 10);
-        const itemRef = ref(db, `handleliste/${itemId}`);
-        return update(itemRef, {
+        await update(itemRef, {
           Buy: false,
-          BoughtBy: getFromStorage("person", "Morten"),
-          BoughtDate: newBoughtDate,
+          BoughtBy: purchase.person,
+          BoughtDate: [purchase.date, ...(item.BoughtDate || [])].slice(0, 10),
           BuyNumber: (item.BuyNumber || 0) + 1
         });
       }
-    })
-    .catch(error => {
-      console.error("❌ Error marking item as bought:", error);
-    });
+      // Buy=false also acknowledges a write whose response was lost.
+      acknowledgePurchase(id);
+    }
+  } catch (error) { handleError(error); }
+  finally { syncing = false; renderItemList(); }
 }
 
-function openEditItem(itemId) {
-  window.location.href = `edititem.html?id=${encodeURIComponent(itemId)}&return=index.html`;
-}
-
-function setupRealtimeListener() {
-  cleanupRealtimeListener();
-
-  waitForAuth()
-    .then(() => {
-      const itemsRef = ref(db, "handleliste");
-      
-      unsubscribeMainListener = onValue(itemsRef, (snapshot) => {
-        const data = snapshot.val() || {};
-        const allItems = Object.entries(data).map(([id, val]) => ({ id, ...val }));
-        const buyableItems = allItems
-          .filter(item => item.Buy === true)
-          .sort(compareItemsByShopThenName);
-        renderItemList(buyableItems);
-      }, (error) => {
-        console.error("❌ Real-time listener error:", error);
-        handleFirebaseError(error);
-      });
-    })
-    .catch(error => {
-      console.error("❌ Authentication error:", error);
-      handleFirebaseError(error);
-    });
+function handleError(error) {
+  console.error('Handleliste:', error);
+  if (error.message === 'Not authenticated' || error.code === 'permission-denied') clearOfflineList();
+  connected = false;
+  renderItemList();
 }
 
 function cleanupRealtimeListener() {
-  if (unsubscribeMainListener) {
-    unsubscribeMainListener();
-    unsubscribeMainListener = null;
-  }
+  generation++;
+  unsubscribeMainListener?.();
+  unsubscribeConnection?.();
+  unsubscribeMainListener = unsubscribeConnection = null;
 }
 
-function refreshMainList() {
-  setupRealtimeListener();
-}
-
-function handleFirebaseError(error) {
-  console.error("❌ Firebase error:", error);
-  console.error("📋 Error details:", error.message);
-  
-  // Show error message to user
-  const itemListElement = getItemList();
-  if (itemListElement) {
-    if (error.message === 'Not authenticated' || error.message === 'Auth timeout') {
-      itemListElement.innerHTML = `<li style="color: orange; padding: 1em;">
-        🔐 Please sign in to use the shopping list.<br>
-        If you were signed out, go to the login page and try again.<br>
-        <button onclick="location.reload()">🔄 Retry</button>
-      </li>`;
-    } else if (error.code === 'permission-denied') {
-      itemListElement.innerHTML = `<li style="color: orange; padding: 1em;">
-        🔐 Access denied.<br>
-        Please sign in again, or check Firebase Database Rules if this continues.<br>
-        <button onclick="location.reload()">🔄 Retry</button>
-      </li>`;
-    } else if (error.code === 'auth/admin-restricted-operation') {
-      itemListElement.innerHTML = `<li style="color: orange; padding: 1em;">
-        🔐 Sign-in is not available right now.<br>
-        Check Firebase Authentication settings in the Firebase Console.<br>
-        <button onclick="location.reload()">🔄 Retry</button>
-      </li>`;
-    } else {
-      itemListElement.innerHTML = `<li style="color: red; padding: 1em;">
-        ❌ Error loading items: ${error.message}<br>
-        Check browser console for details.<br>
-        <button onclick="location.reload()">🔄 Retry</button>
-      </li>`;
-    }
-  }
-}
-
-// Clean up listener when leaving or caching the page.
-window.addEventListener("pagehide", () => {
+async function setupRealtimeListener() {
   cleanupRealtimeListener();
-});
+  const currentGeneration = generation;
+  if (navigator.onLine === false || suspended) return;
+  try {
+    await waitForAuth();
+    if (currentGeneration !== generation || navigator.onLine === false || suspended) return;
+    unsubscribeMainListener = onValue(ref(db, 'handleliste'), snapshot => {
+      const items = Object.entries(snapshot.val() || {}).map(([id, item]) => ({ id, ...item }));
+      cacheItems(items.filter(item => item.Buy === true));
+      renderItemList();
+    }, handleError);
+    unsubscribeConnection = onValue(ref(db, '.info/connected'), snapshot => {
+      connected = snapshot.val() === true && navigator.onLine !== false;
+      renderItemList();
+      if (connected) void syncPurchases();
+    });
+  } catch (error) { handleError(error); }
+}
 
-window.addEventListener("pageshow", (event) => {
-  if (event.persisted) {
-    refreshMainList();
-  }
+window.addEventListener('offline', () => { connected = false; renderItemList(); });
+window.addEventListener('online', () => { void setupRealtimeListener(); });
+window.addEventListener('pagehide', () => { suspended = true; cleanupRealtimeListener(); });
+window.addEventListener('pageshow', event => {
+  if (event.persisted) { suspended = false; connected = false; renderItemList(); void setupRealtimeListener(); }
 });
-
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener('DOMContentLoaded', () => {
   applySavedFontSize();
-  document.getElementById("appVersion").textContent = `v${APP_VERSION}`;
-  const person = getFromStorage("person", "Morten");
-  document.getElementById("personSelector").value = person;
-  setupRealtimeListener();
+  document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
+  document.getElementById('personSelector').value = getFromStorage('person', 'Morten');
+  document.getElementById('addButton').addEventListener('click', () => {
+    if (connected && !syncing) window.location.href = 'markitemtobuy.html';
+    else if (!connected) { alert('Koble enheten til internett. Handlelisten synkroniseres automatisk.'); void setupRealtimeListener(); }
+  });
+  renderItemList();
+  void setupRealtimeListener();
 });
-
-window.updatePerson = () => {
-  const person = document.getElementById("personSelector").value;
-  saveToStorage("person", person);
-};
-
-window.updateFontSize = updateFontSize;
-
-window.logout = () => {
-  if (confirm('Are you sure you want to sign out?')) {
-    signOutUser();
-  }
-};
+window.updatePerson = () => { if (connected) saveToStorage('person', document.getElementById('personSelector').value); };
+window.updateFontSize = () => { if (connected) updateFontSize(); };
+window.logout = () => { if (confirm('Are you sure you want to sign out?')) signOutUser(); };
