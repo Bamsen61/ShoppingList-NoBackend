@@ -1,4 +1,12 @@
 if ('serviceWorker' in navigator) {
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // Reload the main page once so its modules match the installed shell.
+    if (!reloading && /\/(index\.html)?$/.test(location.pathname)) {
+      reloading = true;
+      location.reload();
+    }
+  });
   navigator.serviceWorker.register(new URL('../sw.js', import.meta.url), { updateViaCache: 'none' })
     .catch(error => console.error('Service worker registration failed', error));
 }

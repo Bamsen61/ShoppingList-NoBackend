@@ -1,4 +1,4 @@
-const CACHE = 'handleliste-shell-v3';
+const CACHE = 'handleliste-shell-v4';
 const BASE = new URL('./', self.location.href);
 const FILES = [
   'index.html', 'login.html', 'markitemtobuy.html', 'additemtodatabase.html', 'edititem.html',
@@ -8,8 +8,9 @@ const FILES = [
 ];
 const SDK = ['app', 'auth', 'database'].map(name => 'https://www.gstatic.com/firebasejs/9.23.0/firebase-' + name + '.js');
 const ASSETS = [...FILES.map(file => new URL(file, BASE).href), ...SDK];
+// Bypass the HTTP cache: previous app modules must not enter the new shell cache.
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS.map(url => new Request(url, { cache: 'no-store' })))));
 });
 // A new worker waits for existing windows to close, avoiding mixed app versions.
 self.addEventListener('activate', event => {

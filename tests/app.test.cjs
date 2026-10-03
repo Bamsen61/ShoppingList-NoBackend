@@ -85,7 +85,7 @@ test('purchase uses default Morten, Oslo date, increments count and preserves te
   for(const person of [undefined,'Linh']) {
     const history=Array.from({length:10},(_,i)=>'2026-09-'+String(30-i).padStart(2,'0'));
     const a=await app('main.js',{person,data:{fixture:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:7,BoughtDate:history}}});await a.ready();
-    assert.equal(a.elements.appVersion.textContent, "v3");
+    assert.equal(a.elements.appVersion.textContent, "v4");
     a.elements.itemList.children[0].events.pointerup({});await a.flush();
     const fields=a.writes[0][2];assert.equal(fields.BoughtBy,person||'Morten');assert.equal(fields.BuyNumber,8);assert.equal(fields.Buy,false);
     assert.deepEqual(fields.BoughtDate,['2026-10-02',...history.slice(0,9)]);
@@ -132,7 +132,7 @@ test('publication contains only necessary app files and all local references res
   }
   const source=fs.readFileSync(path.join(root,'docs/js/firebase-init.js'),'utf8');assert.match(source,/ZDq6ZGvDVDafX8BVlWGRhBoSn9X2/);assert.match(source,/fmVOzYiAtsOUNnUE33VZbwHR0SG3/);
   assert.match(fs.readFileSync(path.join(root,'docs/index.html'),'utf8'),/<!-- <button onclick="logout\(\)"/);
-  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 3;/);
+  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 4;/);
 });
 
 test('offline restart shows only shopping rows, persists marks and prevents navigation/editing',async()=>{
@@ -204,15 +204,15 @@ test('pagehide unsubscribes listeners; back-forward restoration reconnects once'
 test('service worker precaches shell/SDK, provides offline navigation and never caches database/auth traffic',async()=>{
   const events={},cached=new Map(),deleted=[],base='https://example.test/ShoppingList-NoBackend/';
   let offline=false,fetches=0;
-  const cache={addAll:async urls=>{for(const url of urls) cached.set(url,{url,installed:true});},match:async request=>cached.get(typeof request==='string'?request:request.url)};
-  const context=vm.createContext({URL,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{}},addEventListener:(name,fn)=>events[name]=fn},
-    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v2','handleliste-shell-v3','another-app'],delete:async key=>deleted.push(key)},
+  const cache={addAll:async requests=>{for(const request of requests) { assert.equal(request.cache,'no-store');cached.set(request.url,{url:request.url,installed:true}); }},match:async request=>cached.get(typeof request==='string'?request:request.url)};
+  const context=vm.createContext({URL,Request,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{}},addEventListener:(name,fn)=>events[name]=fn},
+    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v3','handleliste-shell-v4','another-app'],delete:async key=>deleted.push(key)},
     fetch:async request=>{fetches++;if(offline) throw Error('offline');return {url:request.url,ok:true,installed:false};}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
   for(const url of cached.keys()) if(url.startsWith(base)) assert.ok(fs.existsSync(path.join(root,'docs',url.slice(base.length))),url);
   assert.ok(cached.has('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js'));
-  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v2']);
+  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v3']);
   function fetchEvent(url,mode='cors',method='GET') { let response;events.fetch({request:{url,mode,method},respondWith:p=>response=p});return response; }
   const online=await fetchEvent(base+'index.html','navigate');assert.equal(online.installed,true);
   offline=true;
@@ -222,4 +222,33 @@ test('service worker precaches shell/SDK, provides offline navigation and never 
   for(const url of ['https://handleliste-3bdaa-default-rtdb.europe-west1.firebasedatabase.app/handleliste.json','https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword',base+'unlisted.json','https://example.test/other-app/index.html']) assert.equal(fetchEvent(url),undefined);
   assert.equal(fetchEvent(base+'js/main.js','cors','POST'),undefined);
   assert.equal(fetches,2);
+});
+
+test('new service worker cannot populate its shell with v2 modules from the HTTP cache',async()=>{
+  const events={},stored=new Map(),base='https://example.test/ShoppingList-NoBackend/';
+  const cache={addAll:async requests=>{
+    for(const request of requests) {
+      // Reproduce Chrome holding the old version.js in its separate HTTP cache.
+      const source=request.cache==='no-store' ? 'APP_VERSION = 4' : 'APP_VERSION = 2';
+      stored.set(request.url,source);
+    }
+  }};
+  const context=vm.createContext({URL,Request,self:{location:{href:base+'sw.js'},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>cache}});
+  vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
+  let task;events.install({waitUntil:p=>task=p});await task;
+  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 4');
+  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 4');
+});
+test('new controller reloads the main page once and leaves forms intact',async()=>{
+  for(const pathname of ['/ShoppingList-NoBackend/index.html','/ShoppingList-NoBackend/','/ShoppingList-NoBackend/edititem.html']) {
+    const events={},registrations=[];let reloads=0;
+    const context=vm.createContext({URL,console,navigator:{onLine:true,serviceWorker:{addEventListener:(name,fn)=>events[name]=fn,register:async(url,options)=>registrations.push([url.href,options])}},
+      location:{pathname,reload:()=>reloads++,replace:()=>assert.fail('Online navigation must remain unchanged')},window:{addEventListener:()=>{}}});
+    const module=new vm.SourceTextModule(fs.readFileSync(path.join(root,'docs/js/pwa.js'),'utf8'),{context,initializeImportMeta:meta=>meta.url='https://example.test/ShoppingList-NoBackend/js/pwa.js'});
+    await module.link(()=>assert.fail('No external imports'));await module.evaluate();
+    events.controllerchange();events.controllerchange();
+    assert.equal(reloads,pathname.endsWith('edititem.html')?0:1);
+    assert.equal(registrations[0][0],'https://example.test/ShoppingList-NoBackend/sw.js');
+    assert.equal(registrations[0][1].updateViaCache,'none');
+  }
 });
