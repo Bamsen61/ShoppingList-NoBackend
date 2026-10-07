@@ -6,7 +6,7 @@ export { APP_VERSION };
 
 // Firebase v9+ Modular SDK
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getDatabase, ref, get, set, push, update, remove, child, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+import { getDatabase, ref, get, set, push, update, remove, child, onValue, goOffline, goOnline } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
 // Firebase web configuration. Active API key restrictions have not been verified.
@@ -155,4 +155,4 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-export { db, ref, get, set, push, update, remove, child, onValue, auth, waitForAuth, signInUser, signOutUser, isAuthorizedUser };
+export { db, ref, get, set, push, update, remove, child, onValue, goOffline, goOnline, auth, waitForAuth, signInUser, signOutUser, isAuthorizedUser };

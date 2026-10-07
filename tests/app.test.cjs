@@ -15,26 +15,33 @@ class Element {
   scrollIntoView() { this.scrolled=true; }
 }
 
-async function app(entry, { data={}, person, now='2026-10-01T22:30:00Z', search='', online=true, stored=[], failWrite=false }={}) {
+async function app(entry, { data={}, person, now='2026-10-01T22:30:00Z', search='', online=true, stored=[], failWrite=false, failRead=false, databaseOnline=online, restartConnects=true, holdWrite, authReady }={}) {
   const records=structuredClone(data), writes=[], alerts=[], routes=[], elements={}, documentEvents={}, windowEvents={}, logs=[];
   const storage=new Map(stored); if(person) storage.set('person',person);
   const navigator={onLine:online};
-  const listeners=[];
-  const document={referrer:'https://example.test/markitemtobuy.html', body:new Element(),
+  const listeners=[], transport=[];
+  let databaseConnected=databaseOnline, clock=0, nextTimer=0;
+  const timers=new Map();
+  const later=(fn,ms)=>{const id=++nextTimer;timers.set(id,{fn,at:clock+ms});return id;};
+  const cancel=id=>timers.delete(id);
+  const connect=value=>{databaseConnected=value;listeners.filter(l=>l.active&&l.key==='.info/connected').forEach(l=>l.fn({val:()=>value}));};
+  async function advanceTime(ms) { clock+=ms;for(const [id,timer] of [...timers]) if(timer.at<=clock) {timers.delete(id);timer.fn();}await new Promise(resolve=>setImmediate(resolve)); }
+
+  const document={visibilityState:'visible',referrer:'https://example.test/markitemtobuy.html', body:new Element(),
     getElementById(id) { if(elements[id]) return elements[id]; for(const e of Object.values(elements)) { const found=e.children.find(c=>c.id===id); if(found) return found; } return elements[id]=new Element(); },
     createElement:()=>new Element(), addEventListener:(name,fn)=>documentEvents[name]=fn};
-  const window={location:{search,replace:url=>routes.push(url),origin:'https://example.test'},history:{length:8,back:()=>{throw Error('History back must not be used');}},addEventListener:(name,fn)=>windowEvents[name]=fn,setTimeout};
+  const window={location:{search,replace:url=>routes.push(url),origin:'https://example.test'},history:{length:8,back:()=>{throw Error('History back must not be used');}},addEventListener:(name,fn)=>windowEvents[name]=fn,setTimeout:later};
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [now])); } }
-  const context=vm.createContext({document,window,navigator,Date:Clock,Intl,URLSearchParams,URL,console:{log:(...args)=>logs.push(args),warn:(...args)=>logs.push(args),error:(...args)=>logs.push(args)},setTimeout,clearTimeout,
+  const context=vm.createContext({document,window,navigator,Date:Clock,Intl,URLSearchParams,URL,console:{log:(...args)=>logs.push(args),warn:(...args)=>logs.push(args),error:(...args)=>logs.push(args)},setTimeout:later,clearTimeout:cancel,
     localStorage:{getItem:key=>storage.get(key),setItem:(key,val)=>storage.set(key,val)},alert:msg=>alerts.push(msg),confirm:()=>true});
   let authorized=true;
   const firebase={db:{isolated:true},ref:(db,key)=>{assert.equal(db.isolated,true);return key;},
-    waitForAuth:async()=>{if(!authorized) throw Error('Not authenticated');},
-    get:async key=>({exists:()=>Boolean(records[key.split('/')[1]]),val:()=>structuredClone(records[key.split('/')[1]])}),
-    update:async(key,fields)=>{if(failWrite) throw Error('Network write failed');writes.push(['update',key,plain(fields)]);Object.assign(records[key.split('/')[1]],plain(fields));},
+    waitForAuth:async()=>{if(authReady) await authReady();if(!authorized) throw Error('Not authenticated');},
+    get:async key=>{if(failRead && (typeof failRead!=='function'||failRead())) throw Error('Network read failed');return {exists:()=>Boolean(records[key.split('/')[1]]),val:()=>structuredClone(records[key.split('/')[1]])};},
+    update:async(key,fields)=>{if(failWrite && (typeof failWrite!=='function'||failWrite())) throw Error('Network write failed');if(holdWrite) await holdWrite();writes.push(['update',key,plain(fields)]);Object.assign(records[key.split('/')[1]],plain(fields));},
     push:async(key,item)=>{writes.push(['push',key,plain(item)]);records.fixtureNew=plain(item);},
     remove:async key=>{writes.push(['remove',key]);delete records[key.split('/')[1]];},
-    onValue:(key,fn)=>{const listener={key,fn,active:true};listeners.push(listener);fn({val:()=>key==='.info/connected'?navigator.onLine:structuredClone(records)});return ()=>listener.active=false;},set:()=>{},child:()=>{},signOutUser:()=>{}};
+    onValue:(key,fn,error)=>{const listener={key,fn,error,active:true};listeners.push(listener);fn({val:()=>key==='.info/connected'?databaseConnected:structuredClone(records)});return ()=>listener.active=false;},goOffline:()=>{transport.push('offline');connect(false);},goOnline:()=>{transport.push('online');if(restartConnects) connect(navigator.onLine);},set:()=>{},child:()=>{},signOutUser:()=>{}};
   const mock=new vm.SyntheticModule(Object.keys(firebase),function(){for(const [key,val] of Object.entries(firebase)) this.setExport(key,val);},{context});
   const modules=new Map();
   function load(file) {
@@ -51,7 +58,7 @@ async function app(entry, { data={}, person, now='2026-10-01T22:30:00Z', search=
   await module.evaluate();
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   const ready=async()=>{if(documentEvents.DOMContentLoaded) await documentEvents.DOMContentLoaded(); if(windowEvents.DOMContentLoaded) await windowEvents.DOMContentLoaded(); await flush();};
-  return {module,records,writes,alerts,routes,elements,document,window,windowEvents,navigator,storage,ready,flush,logs,allow:()=>authorized=true,deny:()=>authorized=false,emit:()=>listeners.filter(l=>l.active&&l.key==='handleliste').forEach(l=>l.fn({val:()=>structuredClone(records)})),connect:value=>listeners.filter(l=>l.active&&l.key==='.info/connected').forEach(l=>l.fn({val:()=>value}))};
+  return {advanceTime,timers,listeners,transport,documentEvents,module,records,writes,alerts,routes,elements,document,window,windowEvents,navigator,storage,ready,flush,logs,allow:()=>authorized=true,deny:()=>authorized=false,emit:()=>listeners.filter(l=>l.active&&l.key==='handleliste').forEach(l=>l.fn({val:()=>structuredClone(records)})),connect};
 }
 
 test('Oslo date around midnight and daylight saving changes',async()=>{
@@ -85,7 +92,7 @@ test('purchase uses default Morten, Oslo date, increments count and preserves te
   for(const person of [undefined,'Linh']) {
     const history=Array.from({length:10},(_,i)=>'2026-09-'+String(30-i).padStart(2,'0'));
     const a=await app('main.js',{person,data:{fixture:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:7,BoughtDate:history}}});await a.ready();
-    assert.equal(a.elements.appVersion.textContent, "v6");
+    assert.equal(a.elements.appVersion.textContent, "v7");
     a.elements.itemList.children[0].events.pointerup({});await a.flush();
     const fields=a.writes[0][2];assert.equal(fields.BoughtBy,person||'Morten');assert.equal(fields.BuyNumber,8);assert.equal(fields.Buy,false);
     assert.deepEqual(fields.BoughtDate,['2026-10-02',...history.slice(0,9)]);
@@ -132,7 +139,7 @@ test('publication contains only necessary app files and all local references res
   }
   const source=fs.readFileSync(path.join(root,'docs/js/firebase-init.js'),'utf8');assert.match(source,/ZDq6ZGvDVDafX8BVlWGRhBoSn9X2/);assert.match(source,/fmVOzYiAtsOUNnUE33VZbwHR0SG3/);
   assert.match(fs.readFileSync(path.join(root,'docs/index.html'),'utf8'),/<!-- <button onclick="logout\(\)"/);
-  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 6;/);
+  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 7;/);
 });
 
 test('offline restart shows only shopping rows, persists marks and prevents navigation/editing',async()=>{
@@ -206,13 +213,13 @@ test('service worker precaches shell/SDK, provides offline navigation and never 
   let offline=false,fetches=0;
   const cache={addAll:async requests=>{for(const request of requests) { assert.equal(request.cache,'no-store');cached.set(request.url,{url:request.url,installed:true}); }},match:async request=>cached.get(typeof request==='string'?request:request.url)};
   const context=vm.createContext({URL,Request,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{},matchAll:async()=>[]},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},
-    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v5','handleliste-shell-v6','another-app'],delete:async key=>deleted.push(key)},
+    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v6','handleliste-shell-v7','another-app'],delete:async key=>deleted.push(key)},
     fetch:async request=>{fetches++;if(offline) throw Error('offline');return {url:request.url,ok:true,installed:false};}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
   for(const url of cached.keys()) if(url.startsWith(base)) assert.ok(fs.existsSync(path.join(root,'docs',url.slice(base.length))),url);
   assert.ok(cached.has('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js'));
-  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v5']);
+  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v6']);
   function fetchEvent(url,mode='cors',method='GET') { let response;events.fetch({request:{url,mode,method},respondWith:p=>response=p});return response; }
   const online=await fetchEvent(base+'index.html','navigate');assert.equal(online.installed,true);
   offline=true;
@@ -229,15 +236,15 @@ test('new service worker cannot populate its shell with v2 modules from the HTTP
   const cache={addAll:async requests=>{
     for(const request of requests) {
       // Reproduce Chrome holding the old version.js in its separate HTTP cache.
-      const source=request.cache==='no-store' ? 'APP_VERSION = 6' : 'APP_VERSION = 2';
+      const source=request.cache==='no-store' ? 'APP_VERSION = 7' : 'APP_VERSION = 2';
       stored.set(request.url,source);
     }
   }};
   const context=vm.createContext({URL,Request,self:{location:{href:base+'sw.js'},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>cache}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
-  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 6');
-  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 6');
+  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 7');
+  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 7');
 });
 
 async function updateApp({online=true,update=async()=>{},waiting=null,failRegistration=false}={}) {
@@ -327,4 +334,106 @@ test('reconnect succeeds without failure feedback; timeout leaves automatic reco
   // A silent server keeps the listener alive; the timeout itself does not cancel it.
   button.events.click();timeout();assert.ok(button.classes.has('connection-failed'));await a.flush();
   a.connect(true);await a.flush();assert.equal(button.textContent,'Legg til');assert.equal(button.classes.has('connection-failed'),false);
+});
+
+
+test('regression: failed pending write never reports a successful reconnect before returning offline',async()=>{
+  const state={items:[{id:'coffee',Name:'Kaffe',Shop:'Extra'}],pending:{coffee:{person:'Linh',date:'2026-10-01'}}};
+  const a=await app('main.js',{stored:[['handleliste.offline.v1',JSON.stringify(state)]],failWrite:true,data:{coffee:{Name:'Kaffe',Buy:true}}});await a.ready();
+  const button=a.elements.addButton;button.events.click();await a.flush();
+  assert.equal(button.textContent,'Koble til internett');
+  assert.ok(button.classes.has('connection-failed'),'The failed write must flash the reconnect button');
+  assert.ok(JSON.parse(a.storage.get('handleliste.offline.v1')).pending.coffee);
+});
+
+test('manual reconnect restarts a stuck Firebase transport even when Chrome reports online',async()=>{
+  const a=await app('main.js',{databaseOnline:false,data:{coffee:{Name:'Kaffe',Buy:true}}});await a.ready();
+  a.elements.addButton.events.click();await a.flush();
+  assert.deepEqual(a.transport,['offline','online']);
+  assert.equal(a.elements.addButton.textContent,'Legg til');
+});
+
+test('transient sync failure retries without a new connection event and drains purchases once',async()=>{
+  let fail=true;
+  const state={items:[{id:'coffee',Name:'Kaffe',Shop:'Extra'}],pending:{coffee:{person:'Linh',date:'2026-10-01'}}};
+  const a=await app('main.js',{stored:[['handleliste.offline.v1',JSON.stringify(state)]],failWrite:()=>fail,data:{coffee:{Name:'Kaffe',Buy:true,BuyNumber:4}}});await a.ready();
+  fail=false;await a.advanceTime(5000);await a.flush();
+  assert.equal(a.writes.length,1);assert.equal(a.records.coffee.BuyNumber,5);
+  assert.equal(a.elements.addButton.textContent,'Legg til');
+  assert.deepEqual(JSON.parse(a.storage.get('handleliste.offline.v1')).pending,{});
+});
+
+test('foreground retries stalled connection; background, offline and pagehide cancel retry timers',async()=>{
+  const a=await app('main.js',{databaseOnline:false,restartConnects:false});await a.ready();
+  a.document.visibilityState='hidden';a.documentEvents.visibilitychange();await a.advanceTime(30000);assert.equal(a.transport.length,0);
+  a.document.visibilityState='visible';a.documentEvents.visibilitychange();a.windowEvents.focus();await a.flush();
+  assert.deepEqual(a.transport,['offline','online']);
+  a.navigator.onLine=false;a.windowEvents.offline();await a.advanceTime(30000);assert.equal(a.transport.length,2);
+  a.navigator.onLine=true;a.windowEvents.online();await a.flush();
+  a.windowEvents.pagehide();const before=a.transport.length;await a.advanceTime(30000);assert.equal(a.transport.length,before);
+});
+
+test('late callbacks from replaced listeners cannot change current connection or cache',async()=>{
+  const a=await app('main.js',{data:{coffee:{Name:'Kaffe',Buy:true}}});await a.ready();
+  const stale=[...a.listeners];a.connect(false);a.elements.addButton.events.click();await a.flush();
+  stale.find(l=>l.key==='.info/connected').fn({val:()=>false});
+  stale.find(l=>l.key==='handleliste').fn({val:()=>({stale:{Name:'Old',Buy:true}})});
+  stale.find(l=>l.key==='handleliste').error(Error('Late failure'));
+  assert.equal(a.elements.addButton.textContent,'Legg til');
+  assert.equal(JSON.parse(a.storage.get('handleliste.offline.v1')).items[0].id,'coffee');
+});
+
+test('reconnect waits for a pending server write and never starts a duplicate write',async()=>{
+  let release;const held=new Promise(resolve=>release=resolve);
+  const state={items:[{id:'coffee',Name:'Kaffe',Shop:'Extra'}],pending:{coffee:{person:'Linh',date:'2026-10-01'}}};
+  const a=await app('main.js',{stored:[['handleliste.offline.v1',JSON.stringify(state)]],holdWrite:()=>held,data:{coffee:{Name:'Kaffe',Buy:true,BuyNumber:4}}});await a.ready();
+  assert.equal(a.elements.addButton.textContent,'Koble til internett');
+  a.elements.addButton.events.click();await a.flush();
+  await a.advanceTime(5000);assert.ok(a.elements.addButton.classes.has('connection-failed'));
+  assert.ok(JSON.parse(a.storage.get('handleliste.offline.v1')).pending.coffee);
+  release();await a.flush();await a.flush();
+  assert.equal(a.writes.length,1);assert.equal(a.records.coffee.BuyNumber,5);
+  assert.equal(a.elements.addButton.textContent,'Legg til');
+  assert.equal(a.elements.addButton.classes.has('connection-failed'),false);
+});
+
+
+test('failed read preserves the queued purchase and retries after the network recovers',async()=>{
+  let fail=true;
+  const state={items:[{id:'coffee',Name:'Kaffe',Shop:'Extra'}],pending:{coffee:{person:'Linh',date:'2026-10-01'}}};
+  const a=await app('main.js',{stored:[['handleliste.offline.v1',JSON.stringify(state)]],failRead:()=>fail,data:{coffee:{Name:'Kaffe',Buy:true,BuyNumber:4}}});await a.ready();
+  assert.equal(a.writes.length,0);assert.ok(JSON.parse(a.storage.get('handleliste.offline.v1')).pending.coffee);
+  fail=false;await a.advanceTime(5000);await a.flush();
+  assert.equal(a.writes.length,1);assert.equal(a.records.coffee.BuyNumber,5);assert.equal(a.elements.addButton.textContent,'Legg til');
+});
+
+test('permission denial clears private cache and stops automatic retry',async()=>{
+  const a=await app('main.js',{data:{coffee:{Name:'Kaffe',Buy:true}}});await a.ready();
+  const error=Error('Permission denied');error.code='PERMISSION_DENIED';
+  a.listeners.find(l=>l.active&&l.key==='handleliste').error(error);
+  a.connect(true);await a.advanceTime(30000);a.windowEvents.focus();await a.flush();
+  assert.deepEqual(JSON.parse(a.storage.get('handleliste.offline.v1')),{items:[],pending:{}});
+  assert.equal(a.transport.length,0);assert.equal(a.elements.addButton.textContent,'Koble til internett');
+});
+
+test('silent Firebase times out with feedback and retries with capped backoff',async()=>{
+  const a=await app('main.js',{databaseOnline:false,restartConnects:false});await a.ready();
+  const button=a.elements.addButton;button.events.click();button.events.click();await a.flush();
+  assert.deepEqual(a.transport,['offline','online']);
+  await a.advanceTime(5000);assert.ok(button.classes.has('connection-failed'));assert.equal(button.disabled,false);
+  const before=a.transport.length;await a.advanceTime(9999);assert.equal(a.transport.length,before);
+  await a.advanceTime(1);await a.flush();assert.equal(a.transport.length,before+2);
+  for(const delay of [20000,30000,30000]) { const calls=a.transport.length;await a.advanceTime(delay);await a.flush();assert.equal(a.transport.length,calls+2); }
+  a.connect(true);await a.flush();assert.equal(button.textContent,'Legg til');
+  const recovered=a.transport.length;await a.advanceTime(60000);assert.equal(a.transport.length,recovered);
+});
+
+
+test('rapid offline-online while authentication is loading still recovers automatically',async()=>{
+  let release;const held=new Promise(resolve=>release=resolve);
+  const a=await app('main.js',{authReady:()=>held,data:{coffee:{Name:'Kaffe',Buy:true}}});await a.ready();
+  a.navigator.onLine=false;a.windowEvents.offline();
+  a.navigator.onLine=true;a.windowEvents.online();release();await a.flush();
+  await a.advanceTime(5000);await a.flush();
+  assert.deepEqual(a.transport,['offline','online']);assert.equal(a.elements.addButton.textContent,'Legg til');
 });

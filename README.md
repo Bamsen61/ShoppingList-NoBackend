@@ -1,6 +1,6 @@
 # ShoppingList-NoBackend
 
-Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **6** er definert i docs/js/version.js og vises som `v6` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. Installér appen som **Handleliste** fra Chrome. Offline viser den sist lagrede handlelisten og lar deg markere kjøp med overstrykning. Kjøp synkroniseres automatisk når Firebase-forbindelsen er tilbake. Første innlogging og caching krever internett.
+Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **7** er definert i docs/js/version.js og vises som `v7` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. Installér appen som **Handleliste** fra Chrome. Offline viser den sist lagrede handlelisten og lar deg markere kjøp med overstrykning. Kjøp synkroniseres automatisk når Firebase-forbindelsen er tilbake. Første innlogging og caching krever internett.
 
 ## Lokal kjøring
 

@@ -1,6 +1,6 @@
 import { APP_VERSION } from './version.js';
 import { getOsloDate } from './dates.js';
-import { db, ref, update, get, onValue, waitForAuth, signOutUser } from './firebase-init.js';
+import { db, ref, update, get, onValue, goOffline, goOnline, waitForAuth, signOutUser } from './firebase-init.js';
 import { getFromStorage, applySavedFontSize, saveToStorage, updateFontSize,
   attachLongPress, compareItemsByShopThenName } from './common.js';
 import { cachedItems, cacheItems, queuePurchase, pendingPurchases,
@@ -14,6 +14,30 @@ let unsubscribeConnection;
 let generation = 0;
 let reconnecting = false;
 let reconnectTimeout;
+let recoveryTimeout;
+let recoveryDelay = 5000;
+let listReady = false;
+let accessDenied = false;
+let settingUp = false;
+
+function onlineReady() {
+  return connected && listReady && !syncing && !suspended && !accessDenied && pendingPurchases().length === 0;
+}
+
+function cancelRecovery() {
+  clearTimeout(recoveryTimeout);
+  recoveryTimeout = null;
+}
+
+function scheduleRecovery() {
+  if (recoveryTimeout || suspended || accessDenied || navigator.onLine === false ||
+      document.visibilityState === 'hidden') return;
+  recoveryTimeout = window.setTimeout(() => {
+    recoveryTimeout = null;
+    recoveryDelay = Math.min(recoveryDelay * 2, 30000);
+    void setupRealtimeListener(true);
+  }, recoveryDelay);
+}
 
 function finishConnectionAttempt(success) {
   if (!reconnecting) return;
@@ -39,11 +63,21 @@ function retryConnection() {
     finishConnectionAttempt(false);
     return;
   }
-  reconnectTimeout = window.setTimeout(() => finishConnectionAttempt(false), 5000);
-  void setupRealtimeListener();
+  reconnectTimeout = window.setTimeout(() => {
+    finishConnectionAttempt(false);
+    scheduleRecovery();
+  }, 5000);
+  void setupRealtimeListener(true);
 }
 
 function renderItemList() {
+  const ready = onlineReady();
+  if (ready) {
+    cancelRecovery();
+    recoveryDelay = 5000;
+    document.getElementById('addButton').classList.remove('connection-failed');
+    finishConnectionAttempt(true);
+  }
   const list = document.getElementById('itemList');
   list.innerHTML = '';
   const items = [...cachedItems()].sort(compareItemsByShopThenName);
@@ -65,16 +99,16 @@ function renderItemList() {
     attachLongPress(row, {
       onClick: () => markItemAsBought(item.id),
       onLongPress: () => {
-        if (connected && !syncing && !isPending(item.id)) {
+        if (onlineReady() && !isPending(item.id)) {
           window.location.href = 'edititem.html?id=' + encodeURIComponent(item.id) + '&return=index.html';
-        } else if (!connected) markItemAsBought(item.id);
+        } else if (!onlineReady()) markItemAsBought(item.id);
       }
     });
     list.appendChild(row);
   }
-  document.getElementById('addButton').textContent = connected ? 'Legg til' : 'Koble til internett';
-  document.getElementById('personSelector').disabled = !connected;
-  document.getElementById('fontSize').disabled = !connected;
+  document.getElementById('addButton').textContent = ready ? 'Legg til' : 'Koble til internett';
+  document.getElementById('personSelector').disabled = !ready;
+  document.getElementById('fontSize').disabled = !ready;
 }
 
 async function markItemAsBought(id) {
@@ -93,8 +127,10 @@ async function markItemAsBought(id) {
 }
 
 async function syncPurchases() {
-  if (!connected || syncing || suspended) return;
+  if (!connected || !listReady || syncing || suspended || accessDenied) return;
+  if (!pendingPurchases().length) return;
   syncing = true;
+  renderItemList();
   try {
     await waitForAuth();
     while (pendingPurchases().length) {
@@ -122,9 +158,13 @@ async function syncPurchases() {
 function handleError(error) {
   console.error('Handleliste:', error);
   finishConnectionAttempt(false);
-  if (error.message === 'Not authenticated' || error.code === 'permission-denied') clearOfflineList();
+  if (error.message === 'Not authenticated' ||
+      String(error.code || '').toLowerCase().replaceAll('_', '-') === 'permission-denied') accessDenied = true;
+  if (accessDenied) { clearOfflineList(); cancelRecovery(); }
   connected = false;
+  listReady = false;
   renderItemList();
+  scheduleRecovery();
 }
 
 function cleanupRealtimeListener() {
@@ -134,43 +174,82 @@ function cleanupRealtimeListener() {
   unsubscribeMainListener = unsubscribeConnection = null;
 }
 
-async function setupRealtimeListener() {
+async function setupRealtimeListener(restart = false) {
+  if (settingUp || suspended || navigator.onLine === false) return;
+  settingUp = true;
+  cancelRecovery();
   cleanupRealtimeListener();
+  connected = false;
+  listReady = false;
   const currentGeneration = generation;
-  if (navigator.onLine === false || suspended) return;
+  const current = () => currentGeneration === generation && !suspended && navigator.onLine !== false;
+  const onError = error => { if (current()) handleError(error); };
+  renderItemList();
   try {
     await waitForAuth();
-    if (currentGeneration !== generation || navigator.onLine === false || suspended) return;
+    if (!current()) return;
+    accessDenied = false;
+    // Replacing listeners alone reuses the same possibly stalled SDK connection.
+    // The SDK retains queued writes during this transport restart.
+    if (restart) { goOffline(db); goOnline(db); }
     unsubscribeMainListener = onValue(ref(db, 'handleliste'), snapshot => {
+      if (!current()) return;
       const items = Object.entries(snapshot.val() || {}).map(([id, item]) => ({ id, ...item }));
       cacheItems(items.filter(item => item.Buy === true));
+      listReady = true;
+      void syncPurchases();
       renderItemList();
-    }, handleError);
+    }, onError);
     unsubscribeConnection = onValue(ref(db, '.info/connected'), snapshot => {
-      connected = snapshot.val() === true && navigator.onLine !== false;
+      if (!current()) return;
+      connected = snapshot.val() === true;
+      if (connected) void syncPurchases();
+      else scheduleRecovery();
       renderItemList();
-      if (connected) {
-        document.getElementById('addButton').classList.remove('connection-failed');
-        finishConnectionAttempt(true);
-        void syncPurchases();
-      }
-    });
-  } catch (error) { handleError(error); }
+    }, onError);
+  } catch (error) { onError(error); }
+  finally {
+    settingUp = false;
+    if (!onlineReady()) scheduleRecovery();
+  }
 }
 
-window.addEventListener('offline', () => { connected = false; renderItemList(); });
-window.addEventListener('online', () => { void setupRealtimeListener(); });
-window.addEventListener('pagehide', () => { suspended = true; finishConnectionAttempt(true); cleanupRealtimeListener(); });
+function recoverOnForeground() {
+  if (!suspended && !accessDenied && !reconnecting && !onlineReady() && document.visibilityState !== 'hidden') {
+    void setupRealtimeListener(true);
+  }
+}
+window.addEventListener('offline', () => {
+  cleanupRealtimeListener();
+  cancelRecovery();
+  connected = listReady = false;
+  finishConnectionAttempt(false);
+  renderItemList();
+});
+window.addEventListener('online', () => { void setupRealtimeListener(true); });
+window.addEventListener('focus', recoverOnForeground);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') cancelRecovery();
+  else recoverOnForeground();
+});
+window.addEventListener('pagehide', () => {
+  suspended = true;
+  connected = listReady = false;
+  cancelRecovery();
+  finishConnectionAttempt(true);
+  cleanupRealtimeListener();
+});
 window.addEventListener('pageshow', event => {
-  if (event.persisted) { suspended = false; connected = false; renderItemList(); void setupRealtimeListener(); }
+  if (event.persisted) { suspended = false; renderItemList(); void setupRealtimeListener(true); }
+  else recoverOnForeground();
 });
 window.addEventListener('DOMContentLoaded', () => {
   applySavedFontSize();
   document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
   document.getElementById('personSelector').value = getFromStorage('person', 'Morten');
   document.getElementById('addButton').addEventListener('click', () => {
-    if (connected && !syncing) window.location.href = 'markitemtobuy.html';
-    else if (!connected) retryConnection();
+    if (onlineReady()) window.location.href = 'markitemtobuy.html';
+    else retryConnection();
   });
   document.getElementById('addButton').addEventListener('animationend', () => {
     document.getElementById('addButton').classList.remove('connection-failed');
@@ -178,6 +257,6 @@ window.addEventListener('DOMContentLoaded', () => {
   renderItemList();
   void setupRealtimeListener();
 });
-window.updatePerson = () => { if (connected) saveToStorage('person', document.getElementById('personSelector').value); };
-window.updateFontSize = () => { if (connected) updateFontSize(); };
+window.updatePerson = () => { if (onlineReady()) saveToStorage('person', document.getElementById('personSelector').value); };
+window.updateFontSize = () => { if (onlineReady()) updateFontSize(); };
 window.logout = () => { if (confirm('Are you sure you want to sign out?')) signOutUser(); };
