@@ -8,7 +8,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 
 ## Instruksjoner Codex ChatGPT skal følge
 
-* Svar på norsk som standard.
+* Svar på norsk som standard. 
 * Hvis noe er uklart og påvirker endringen, spør før endringer gjøres.
 * Alle prosjektendringer skal gjøres direkte i filene under `D:\GIT\ShoppingList-NoBackend\`.
 * Ved hver endringsrunde i prosjektfilen økes dokumentversjonen med 1. Oppdater kontrolldatoen når dokumentet kontrolleres mot koden.
