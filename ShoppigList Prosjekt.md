@@ -152,7 +152,7 @@ Kjøpsregistrering bruker `get()` etterfulgt av `update()`, uten transaction. Sa
 * Redigering bruker URL-parametrene `id` og `return`. Normal retur er `index.html` eller `markitemtobuy.html`.
 * `returnToMainPage()` bruker alltid `location.replace("index.html")`. Flere andre overganger bruker også `location.replace()`.
 
-Retur går direkte til `index.html`, også etter opprettelse/avbryt av ny vare og ved «Tilbake» fra «Legg til». Den separate `return=markitemtobuy.html`-returen fra redigering er beholdt. **Må Sjekkes**: Androids Back-knapp etter publisering av navigasjonsendringen.
+Retur går direkte til `index.html`, også etter opprettelse/avbryt av ny vare og ved «Tilbake» fra «Legg til». Den separate `return=markitemtobuy.html`-returen fra redigering er beholdt.
 
 ## PWA og cache – implementert i appversjon 3
 
@@ -164,7 +164,7 @@ Når navigator eller Firebase melder manglende forbindelse, vises den lagrede ha
 
 Ved gjenopprettet Firebase-forbindelse og autorisert auth leses hver ventende vare før kjøpsregistreringen oppdateres. Person/dato fra offline-kjøpet brukes, teller økes og inntil ti datoer beholdes. Varer som allerede er kjøpt eller slettet, kvitteres uten nytt kjøp eller gjenopprettelse. Ventende kjøp fjernes først etter bekreftet write; nettverksfeil beholder dem til ny forbindelse eller oppstart. Samtidighet med andre brukere håndteres som avtalt uten transaction. Logout og bekreftet manglende auth/tilgang tømmer den lokale listen.
 
-**Må Sjekkes**: Installasjon og oppstart i eget appvindu på Android Chrome, ekte login/realtime, offline etter lukking/ny oppstart, synkronisering og Back-navigasjon. Utfør én manuell test om gangen etter publisering. Automatiserte tester bruker kun isolerte fixtures.
+Automatiserte tester bruker kun isolerte fixtures.
 
 ## Filstruktur
 
