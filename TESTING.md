@@ -1,4 +1,4 @@
-# Testing – appversjon 7
+# Testing – appversjon 8
 
 ## Automatiserte tester
 
@@ -12,7 +12,7 @@ Krever Node.js 22 eller nyere. Bruker innebygd node:test og vm.SourceTextModule;
 
 tests/app.test.cjs kjører de faktiske appmodulene i isolerte VM-kontekster med Firebase erstattet av en in-memory mock. Modul-loaderen avviser nettverksimporter; fetch, XMLHttpRequest og produksjonskontoer er ikke tilgjengelige. Hver test får egne fixtures. Ingen test skriver til produksjonsdatabasen.
 
-Dekker standardperson og valgt person, Oslo-dato rundt midnatt og sommertid, inklusive 50 kalenderdager, ugyldige datoer, norsk sortering, direkte retur til forsiden, opprettelse, kjøp/teller/historikk, tillegg, redigering/sletting og avviste writes ved manglende auth. Søk, Vis alle og bokstavnavigasjon kontrolleres med DOM-mock. Publiseringskontrollen tillater bare nødvendige appfiler og kontrollerer lokale ressursreferanser samt appversjon 7.
+Dekker standardperson og valgt person, Oslo-dato rundt midnatt og sommertid, inklusive 50 kalenderdager, ugyldige datoer, norsk sortering, direkte retur til forsiden, opprettelse, kjøp/teller/historikk, tillegg, redigering/sletting og avviste writes ved manglende auth. Søk, Vis alle og bokstavnavigasjon kontrolleres med DOM-mock. Publiseringskontrollen tillater bare nødvendige appfiler og kontrollerer lokale ressursreferanser samt appversjon 8.
 
 Mocken bekrefter ikke ekte innlogging, aktive Firebase-regler, nettverksbasert realtime eller rendering i Android Chrome. Bruk lokal Firebase-emulator hvis automatisert auth-/regelintegrasjon blir nødvendig.
 
@@ -28,7 +28,7 @@ Person og fontSize er de lokale innstillingene. Det finnes ingen global shop-inn
 
 Automatiserte tester dekker minimal lokal datacache, offline-oppstart fra lagring, overstrykning, vedvarende kjøp over reload, gjenopprettet forbindelse, opprinnelig kjøpsperson/dato, teller/historikk, feil og retry, slettede/allerede kjøpte varer, manifestets GitHub Pages-stier og PNG-størrelser. Service worker testes med isolert Cache/fetch-mock.
 
-Etter publisering er første manuelle test: installer Handleliste fra Android Chrome og kontroller at den åpner i eget appvindu med v7. Vent på svar før neste test. Deretter kontrolleres offline-oppstart og synkronisering med en særskilt testvare, og ekte login/realtime/navigasjon separat. Disse kontrollene er ikke gjennomført automatisk.
+Etter publisering er første manuelle test: installer Handleliste fra Android Chrome og kontroller at den åpner i eget appvindu med v8. Vent på svar før neste test. Deretter kontrolleres offline-oppstart og synkronisering med en særskilt testvare, og ekte login/realtime/navigasjon separat. Disse kontrollene er ikke gjennomført automatisk.
 
 Regresjonstester dekker gammel v2-JavaScript i HTTP-cache ved precache av ny appversjon, opprydding av gammel service worker-cache og automatisk aktivering etter fullstendig precache, oppdateringssjekk ved oppstart/fokus/foreground og automatisk navigasjon av åpne appvinduer (inkludert gamle klienter). Andre apper på origin skal ikke navigeres. Offline/feil skal beholde gjeldende app, og mislykket precache skal ikke aktivere en ufullstendig app.
 
@@ -37,3 +37,5 @@ Manuell kontroll av denne endringen, én test: etter publisering, åpne index.ht
 Appversjon 6: offline er bekreftet av brukeren i v5. Tilkoblingsknappen testes med isolerte fixtures for ingen popup, rødt feilblink, vellykket forsøk og fortsatt reconnect etter feedback. Manuell kontroll etter publisering: trykk «Koble til internett» uten nett og kontroller to røde blink uten dialog. Vent på svaret før videre mobiltesting.
 
 Appversjon 7: isolerte regresjonstester gjenskaper v6-feilen der en pending write feiler etter at knappen har vist vellykket tilkobling. Testene dekker faktisk restart av SDK-forbindelsen, read/write-feil med bevart kjøp og automatisk retry, tilkoblingstimeout/backoff, foreground, frakobling/pagehide, utdaterte callbacks, permission denial og server-writes som venter gjennom reconnect uten dobbeltregistrering. Ingen produksjonskontoer eller nettverk brukes. Etter publisering er neste manuelle kontroll én test: åpne v7 på den berørte telefonen med internett, trykk "Koble til internett" hvis knappen vises, og kontroller at appen blir stående med "Legg til" og at de ventende kjøpene forsvinner. Vent på svaret før flere tester.
+
+Appversjon 8: 39 isolerte tester passerer. Nye fixtures gjenskaper objektbasert `BoughtDate` som stoppet hele køen i v7, og kontrollerer beholdt historikk for array/objekt/enkeltstående string/null, numerisk teller og bevart kø ved ugyldige data. Feiltekst testes for read/write, navigator-offline, timeout og fjerning ved vellykket synkronisering. Ingen produksjonsdata er lest eller skrevet. Neste manuelle test etter publisering, én oppgave: åpne v8 på den berørte telefonen og trykk "Koble til internett" hvis den fortsatt vises; noter om appen blir klar, eller send den konkrete feilteksten over knappen. Vent på svaret før flere tester. Det er ikke bekreftet at historikkformatet er årsaken på telefonen.

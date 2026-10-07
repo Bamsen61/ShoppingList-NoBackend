@@ -92,7 +92,7 @@ test('purchase uses default Morten, Oslo date, increments count and preserves te
   for(const person of [undefined,'Linh']) {
     const history=Array.from({length:10},(_,i)=>'2026-09-'+String(30-i).padStart(2,'0'));
     const a=await app('main.js',{person,data:{fixture:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:7,BoughtDate:history}}});await a.ready();
-    assert.equal(a.elements.appVersion.textContent, "v7");
+    assert.equal(a.elements.appVersion.textContent, "v8");
     a.elements.itemList.children[0].events.pointerup({});await a.flush();
     const fields=a.writes[0][2];assert.equal(fields.BoughtBy,person||'Morten');assert.equal(fields.BuyNumber,8);assert.equal(fields.Buy,false);
     assert.deepEqual(fields.BoughtDate,['2026-10-02',...history.slice(0,9)]);
@@ -139,7 +139,7 @@ test('publication contains only necessary app files and all local references res
   }
   const source=fs.readFileSync(path.join(root,'docs/js/firebase-init.js'),'utf8');assert.match(source,/ZDq6ZGvDVDafX8BVlWGRhBoSn9X2/);assert.match(source,/fmVOzYiAtsOUNnUE33VZbwHR0SG3/);
   assert.match(fs.readFileSync(path.join(root,'docs/index.html'),'utf8'),/<!-- <button onclick="logout\(\)"/);
-  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 7;/);
+  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 8;/);
 });
 
 test('offline restart shows only shopping rows, persists marks and prevents navigation/editing',async()=>{
@@ -213,13 +213,13 @@ test('service worker precaches shell/SDK, provides offline navigation and never 
   let offline=false,fetches=0;
   const cache={addAll:async requests=>{for(const request of requests) { assert.equal(request.cache,'no-store');cached.set(request.url,{url:request.url,installed:true}); }},match:async request=>cached.get(typeof request==='string'?request:request.url)};
   const context=vm.createContext({URL,Request,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{},matchAll:async()=>[]},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},
-    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v6','handleliste-shell-v7','another-app'],delete:async key=>deleted.push(key)},
+    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v7','handleliste-shell-v8','another-app'],delete:async key=>deleted.push(key)},
     fetch:async request=>{fetches++;if(offline) throw Error('offline');return {url:request.url,ok:true,installed:false};}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
   for(const url of cached.keys()) if(url.startsWith(base)) assert.ok(fs.existsSync(path.join(root,'docs',url.slice(base.length))),url);
   assert.ok(cached.has('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js'));
-  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v6']);
+  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v7']);
   function fetchEvent(url,mode='cors',method='GET') { let response;events.fetch({request:{url,mode,method},respondWith:p=>response=p});return response; }
   const online=await fetchEvent(base+'index.html','navigate');assert.equal(online.installed,true);
   offline=true;
@@ -236,15 +236,15 @@ test('new service worker cannot populate its shell with v2 modules from the HTTP
   const cache={addAll:async requests=>{
     for(const request of requests) {
       // Reproduce Chrome holding the old version.js in its separate HTTP cache.
-      const source=request.cache==='no-store' ? 'APP_VERSION = 7' : 'APP_VERSION = 2';
+      const source=request.cache==='no-store' ? 'APP_VERSION = 8' : 'APP_VERSION = 2';
       stored.set(request.url,source);
     }
   }};
   const context=vm.createContext({URL,Request,self:{location:{href:base+'sw.js'},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>cache}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
-  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 7');
-  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 7');
+  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 8');
+  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 8');
 });
 
 async function updateApp({online=true,update=async()=>{},waiting=null,failRegistration=false}={}) {
@@ -318,6 +318,7 @@ test('offline reconnect click gives feedback without a dialog and keeps shopping
   const a=await app('main.js',{online:false,stored});await a.ready();
   const button=a.elements.addButton;button.events.click();await a.flush();
   assert.equal(a.alerts.length,0);assert.equal(button.disabled,false);assert.ok(button.classes.has('connection-failed'));
+  assert.equal(a.elements.connectionStatus.hidden,false);assert.match(a.elements.connectionStatus.textContent,/Nettleseren melder/);
   button.events.animationend();assert.equal(button.classes.has('connection-failed'),false);
   button.events.click();assert.ok(button.classes.has('connection-failed'));
   a.elements.itemList.children[0].events.pointerup({});await a.flush();assert.ok(a.elements.itemList.children[0].classes.has('is-bought-offline'));
@@ -403,6 +404,7 @@ test('failed read preserves the queued purchase and retries after the network re
   const state={items:[{id:'coffee',Name:'Kaffe',Shop:'Extra'}],pending:{coffee:{person:'Linh',date:'2026-10-01'}}};
   const a=await app('main.js',{stored:[['handleliste.offline.v1',JSON.stringify(state)]],failRead:()=>fail,data:{coffee:{Name:'Kaffe',Buy:true,BuyNumber:4}}});await a.ready();
   assert.equal(a.writes.length,0);assert.ok(JSON.parse(a.storage.get('handleliste.offline.v1')).pending.coffee);
+  assert.match(a.elements.connectionStatus.textContent,/Lesing av kjøp:.*Network read failed/);
   fail=false;await a.advanceTime(5000);await a.flush();
   assert.equal(a.writes.length,1);assert.equal(a.records.coffee.BuyNumber,5);assert.equal(a.elements.addButton.textContent,'Legg til');
 });
@@ -421,6 +423,7 @@ test('silent Firebase times out with feedback and retries with capped backoff',a
   const button=a.elements.addButton;button.events.click();button.events.click();await a.flush();
   assert.deepEqual(a.transport,['offline','online']);
   await a.advanceTime(5000);assert.ok(button.classes.has('connection-failed'));assert.equal(button.disabled,false);
+  assert.match(a.elements.connectionStatus.textContent,/Tilkobling til Firebase: Ingen bekreftelse innen 5 sekunder/);
   const before=a.transport.length;await a.advanceTime(9999);assert.equal(a.transport.length,before);
   await a.advanceTime(1);await a.flush();assert.equal(a.transport.length,before+2);
   for(const delay of [20000,30000,30000]) { const calls=a.transport.length;await a.advanceTime(delay);await a.flush();assert.equal(a.transport.length,calls+2); }
@@ -436,4 +439,38 @@ test('rapid offline-online while authentication is loading still recovers automa
   a.navigator.onLine=true;a.windowEvents.online();release();await a.flush();
   await a.advanceTime(5000);await a.flush();
   assert.deepEqual(a.transport,['offline','online']);assert.equal(a.elements.addButton.textContent,'Legg til');
+});
+
+
+test('purchase history returned as a Firebase object does not block the entire offline queue',async()=>{
+  const state={items:[{id:'one',Name:'Kaffe',Shop:'Extra'},{id:'two',Name:'Te',Shop:'Extra'}],pending:{one:{person:'Linh',date:'2026-10-07'},two:{person:'Linh',date:'2026-10-07'}}};
+  const a=await app('main.js',{stored:[['handleliste.offline.v1',JSON.stringify(state)]],data:{one:{Name:'Kaffe',Buy:true,BuyNumber:4,BoughtDate:{0:'2026-09-30',8:'2026-09-01'}},two:{Name:'Te',Buy:true,BuyNumber:2,BoughtDate:['2026-09-29']}}});await a.ready();
+  assert.equal(a.writes.length,2);
+  assert.deepEqual(a.records.one.BoughtDate,['2026-10-07','2026-09-30','2026-09-01']);
+  assert.equal(a.records.one.BuyNumber,5);assert.deepEqual(JSON.parse(a.storage.get('handleliste.offline.v1')).pending,{});
+  assert.equal(a.elements.addButton.textContent,'Legg til');
+});
+
+test('single date, sparse history and legacy numeric count are preserved when purchasing',async()=>{
+  for(const [history,expected] of [['2026-09-30',['2026-09-30']],[['2026-09-30',null,'2026-09-01'],['2026-09-30','2026-09-01']],[null,[]]]) {
+    const a=await app('main.js',{data:{one:{Name:'Kaffe',Buy:true,BuyNumber:'4',BoughtDate:history}}});await a.ready();
+    a.elements.itemList.children[0].events.pointerup({});await a.flush();
+    assert.deepEqual(a.records.one.BoughtDate,['2026-10-02',...expected]);assert.equal(a.records.one.BuyNumber,5);
+  }
+});
+
+test('connection feedback identifies a failed server write and clears after successful sync',async()=>{
+  let fail=true;const state={items:[{id:'one',Name:'Kaffe',Shop:'Extra'}],pending:{one:{person:'Linh',date:'2026-10-07'}}};
+  const a=await app('main.js',{stored:[['handleliste.offline.v1',JSON.stringify(state)]],failWrite:()=>fail,data:{one:{Name:'Kaffe',Buy:true}}});await a.ready();
+  assert.equal(a.elements.connectionStatus.hidden,false);assert.match(a.elements.connectionStatus.textContent,/Lagring av kjøp:.*Network write failed/);
+  fail=false;await a.advanceTime(5000);await a.flush();assert.equal(a.elements.connectionStatus.hidden,true);assert.equal(a.elements.connectionStatus.textContent,'');
+});
+
+test('invalid history or counter reports a data error and retains the purchase',async()=>{
+  const state={items:[{id:'one',Name:'Kaffe',Shop:'Extra'}],pending:{one:{person:'Linh',date:'2026-10-07'}}};
+  for(const fields of [{BoughtDate:{0:{invalid:true}}},{BuyNumber:'not-a-number'},{BuyNumber:[]},{BuyNumber:false}]) {
+    const a=await app('main.js',{stored:[['handleliste.offline.v1',JSON.stringify(state)]],data:{one:{Name:'Kaffe',Buy:true,...fields}}});await a.ready();
+    assert.equal(a.writes.length,0);assert.ok(JSON.parse(a.storage.get('handleliste.offline.v1')).pending.one);
+    assert.match(a.elements.connectionStatus.textContent,/Klargjøring av kjøp:.*Invalid purchase/);
+  }
 });

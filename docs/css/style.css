@@ -250,3 +250,10 @@ button:active {
   0%, 100% { background-color: #007bff; }
   20%, 65% { background-color: #dc3545; }
 }
+
+.connection-status {
+  margin: 0 0 0.6em;
+  font-size: 0.75em;
+  color: #9c202b;
+  overflow-wrap: anywhere;
+}

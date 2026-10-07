@@ -1,6 +1,6 @@
 # ShoppingList – prosjektbeskrivelse og driftsgrunnlag
 
-Dokumentversjon: 10
+Dokumentversjon: 11
 
 Sist kontrollert mot lokal kode: 2026-10-07
 
@@ -33,7 +33,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Målplattform: Android Chrome. Responsiv layout finnes; øvrig nettleserkompatibilitet er ikke bekreftet.
 * Ingen egen backend kjøres i repoet. Firebase Authentication og Realtime Database brukes direkte fra nettleseren.
 * PWA, service worker og lokal offline-handleliste er implementert. Android-installasjon og ekte auth/realtime gjenstår som manuell kontroll etter publisering.
-* Appversjon **7** er definert sentralt i `docs/js/version.js` og vises som `v7` på forsiden.
+* Appversjon **8** er definert sentralt i `docs/js/version.js` og vises som `v8` på forsiden.
 
 ## Formål
 
@@ -164,6 +164,8 @@ Når navigator eller Firebase melder manglende forbindelse, vises den lagrede ha
 
 Fra appversjon 7 viser forsiden først "Legg til" når Firebase er tilkoblet, handlelistens listener har levert data og alle ventende kjøp er kvittert. Tilkoblingsknappen starter selve SDK-forbindelsen på nytt med `goOffline()`/`goOnline()`, uten å slette ventende writes. Synkroniseringsfeil avslutter ikke lenger et manuelt forsøk som vellykket før feilen oppstår. Ved midlertidig feil eller frakobling prøves tilkobling igjen etter 5, 10, 20 og deretter maksimalt 30 sekunder mellom forsøk. Focus, synlig visibilitychange, pageshow og online starter også nytt forsøk når appen ikke er klar. Samtidige oppsett samles; gamle listener-callbacks ignoreres. Bakgrunn, pagehide og manglende nett stopper retry-timeren. Bekreftet manglende auth/permission-denied tømmer lokal liste og stopper automatisk retry. En write som fortsatt venter på serverens kvittering beholder synkroniseringslåsen gjennom reconnect, slik at samme kjøp ikke sendes på nytt av en parallell synkronisering. Android-kontroll av denne rettingen gjenstår etter publisering.
 
+Fra appversjon 8 vises en kort feiltekst over tilkoblingsknappen ved feil, uten popup. Teksten angir om feilen oppstod ved lesing, klargjøring eller lagring av et ventende kjøp, med faktisk error name/code/message. Ved timeout angis steget som ventet på bekreftelse; navigator-offline har egen tekst. Meldingen forsvinner først når appen er klar igjen og caches ikke som brukerdata. I isolerte tester er en umiddelbar feil i v7 gjenskapt med objektbasert `BoughtDate`: spread av et objekt stopper hele køen. v8 støtter array, objekt med datostrenger, enkeltstående string og manglende historikk, og fjerner bare null/hull. Historikkstrenger beholdes i eksisterende rekkefølge, med samme grense på ti datoer ved kjøp. `BuyNumber` støtter eksisterende number og konverterbare numeriske strings; ugyldig historikk/teller gir konkret feilmelding og beholder kjøpet. Ingen bulkendring av historikk eller produksjonsdata er utført. Brukeren har rapportert umiddelbart feilblink i v7 på telefonen; det er ikke bekreftet at historikkformatet er årsaken der. Neste Android-kontroll etter publisering gjelder ett tilkoblingsforsøk i v8 og eventuell feiltekst.
+
 Ved gjenopprettet Firebase-forbindelse og autorisert auth leses hver ventende vare før kjøpsregistreringen oppdateres. Person/dato fra offline-kjøpet brukes, teller økes og inntil ti datoer beholdes. Varer som allerede er kjøpt eller slettet, kvitteres uten nytt kjøp eller gjenopprettelse. Ventende kjøp fjernes først etter bekreftet write; nettverksfeil beholder dem til ny forbindelse eller oppstart. Samtidighet med andre brukere håndteres som avtalt uten transaction. Logout og bekreftet manglende auth/tilgang tømmer den lokale listen.
 
 Automatiserte tester bruker kun isolerte fixtures.
@@ -181,7 +183,7 @@ Automatiserte tester bruker kun isolerte fixtures.
 | `docs/js/firebase-init.js` | Firebase-konfigurasjon, SDK, UID-allowlist, persistence og auth-funksjoner. |
 | `docs/js/common.js` | Lokal lagring, skriftstørrelse, sortering, langt trykk og navigasjon. |
 | `docs/js/dates.js` | Oslo-dato, datovalidering og kalenderbasert filter. |
-| `docs/js/version.js` | Sentralt appversjonsnummer, nå 7. |
+| `docs/js/version.js` | Sentralt appversjonsnummer, nå 8. |
 | `tests/app.test.cjs` | Automatiserte tester med isolert Firebase-/DOM-mock. |
 | `tools/README.md` | Upubliserte hjelpefiler og oppdaterte lokale lenker. |
 | `docs/js/main.js` | Realtime hovedliste, forbindelsesstatus og synkronisering av kjøp. |
@@ -281,6 +283,8 @@ Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjon
 Ved tilbakeføring reverseres den konkrete feilaktige committen med `git revert`, etter kontroll av lokale endringer. En eldre nettstedversjon reverserer ikke databaseendringer eller Firebase-regler. Før senere endringer i regler eller datamodell sikres gjeldende regler og nødvendige data separat.
 
 ## Endringslogg for prosjektfilen
+
+* **2026-10-07 – dokumentversjon 11, appversjon 8:** Rettet gjenskapt sync-feil ved objektbasert kjøpshistorikk og håndtering av enkeltstående dato/null/hull. Numerisk teller lagres som number. Feiltekst viser steg og faktisk feil uten popup, og skjules ved vellykket synkronisering. 39 isolerte tester passerer; årsaken på brukerens telefon er fortsatt ikke bekreftet. Ingen produksjonsdata, regler eller auth-innstillinger er endret, og v8 er ikke publisert av Codex.
 
 * **2026-10-07 – dokumentversjon 10, appversjon 7:** Rettet for tidlig vellykket reconnect og fastlåst offline etter synkroniseringsfeil. Tilkoblingsknappen starter Firebase-forbindelsen på nytt; automatisk retry med begrenset backoff og gjenoppretting ved foreground/nett er lagt til. Ventende kjøp beholdes til kvittering, og utdaterte listener-callbacks ignoreres. Isolerte regresjonstester gjenskaper v6-feilen og dekker nettfeil, hengende writes, lifecycle, retry og permission denial. Ekte Android-verifikasjon gjenstår. Ingen publisering eller endring av produksjonsdata/regler er utført.
 

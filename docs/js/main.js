@@ -19,6 +19,22 @@ let recoveryDelay = 5000;
 let listReady = false;
 let accessDenied = false;
 let settingUp = false;
+let syncPhase = '';
+
+function showConnectionError(message) {
+  const status = document.getElementById('connectionStatus');
+  status.textContent = message;
+  status.hidden = !message;
+}
+
+function purchaseHistory(value) {
+  if (value == null) return [];
+  if (typeof value === 'string') return [value];
+  if (typeof value !== 'object') throw new Error('Invalid purchase history');
+  const dates = Object.values(value).filter(date => date != null);
+  if (!dates.every(date => typeof date === 'string')) throw new Error('Invalid purchase history');
+  return dates;
+}
 
 function onlineReady() {
   return connected && listReady && !syncing && !suspended && !accessDenied && pendingPurchases().length === 0;
@@ -59,11 +75,13 @@ function retryConnection() {
   button.classList.remove('connection-failed');
   button.disabled = true;
   if (navigator.onLine === false) {
+    showConnectionError('Nettleseren melder at enheten er offline.');
     void setupRealtimeListener();
     finishConnectionAttempt(false);
     return;
   }
   reconnectTimeout = window.setTimeout(() => {
+    showConnectionError((syncPhase || 'Tilkobling til Firebase') + ': Ingen bekreftelse innen 5 sekunder.');
     finishConnectionAttempt(false);
     scheduleRecovery();
   }, 5000);
@@ -73,6 +91,7 @@ function retryConnection() {
 function renderItemList() {
   const ready = onlineReady();
   if (ready) {
+    showConnectionError('');
     cancelRecovery();
     recoveryDelay = 5000;
     document.getElementById('addButton').classList.remove('connection-failed');
@@ -130,6 +149,7 @@ async function syncPurchases() {
   if (!connected || !listReady || syncing || suspended || accessDenied) return;
   if (!pendingPurchases().length) return;
   syncing = true;
+  syncPhase = 'Innlogging';
   renderItemList();
   try {
     await waitForAuth();
@@ -137,25 +157,36 @@ async function syncPurchases() {
       const [id, purchase] = pendingPurchases()[0];
       if (!connected || suspended) break;
       const itemRef = ref(db, 'handleliste/' + id);
+      syncPhase = 'Lesing av kjøp';
       const snapshot = await get(itemRef);
       if (!connected || suspended) break;
       if (snapshot.exists() && snapshot.val().Buy === true) {
         const item = snapshot.val();
+        syncPhase = 'Klargjøring av kjøp';
+        const history = purchaseHistory(item.BoughtDate);
+        if (item.BuyNumber != null && !['number', 'string'].includes(typeof item.BuyNumber)) {
+          throw new Error('Invalid purchase count');
+        }
+        const count = Number(item.BuyNumber ?? 0);
+        if (!Number.isFinite(count) || count < 0) throw new Error('Invalid purchase count');
+        syncPhase = 'Lagring av kjøp';
         await update(itemRef, {
           Buy: false,
           BoughtBy: purchase.person,
-          BoughtDate: [purchase.date, ...(item.BoughtDate || [])].slice(0, 10),
-          BuyNumber: (item.BuyNumber || 0) + 1
+          BoughtDate: [purchase.date, ...history].slice(0, 10),
+          BuyNumber: count + 1
         });
       }
       // Buy=false also acknowledges a write whose response was lost.
       acknowledgePurchase(id);
     }
-  } catch (error) { handleError(error); }
-  finally { syncing = false; renderItemList(); }
+  } catch (error) { handleError(error, syncPhase); }
+  finally { syncing = false; syncPhase = ''; renderItemList(); }
 }
 
-function handleError(error) {
+function handleError(error, phase = 'Tilkobling til Firebase') {
+  const detail = [error.code || error.name, error.message].filter(Boolean).join(': ');
+  showConnectionError(phase + ': ' + detail.slice(0, 400));
   console.error('Handleliste:', error);
   finishConnectionAttempt(false);
   if (error.message === 'Not authenticated' ||
@@ -244,6 +275,7 @@ window.addEventListener('pageshow', event => {
   else recoverOnForeground();
 });
 window.addEventListener('DOMContentLoaded', () => {
+  showConnectionError('');
   applySavedFontSize();
   document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
   document.getElementById('personSelector').value = getFromStorage('person', 'Morten');
