@@ -241,7 +241,10 @@ button:active {
   background-color: #b02a37;
 }
 
-.is-bought-offline { text-decoration: line-through; opacity: 0.6; }
+.item-row.is-bought-offline {
+  text-decoration: line-through;
+  background-color: #c8e6c9;
+}
 
 #addButton.connection-failed {
   animation: connection-failed 0.6s ease-in-out 2;
