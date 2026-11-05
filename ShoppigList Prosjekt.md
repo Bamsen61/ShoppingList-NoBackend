@@ -1,8 +1,8 @@
 # ShoppingList – prosjektbeskrivelse og driftsgrunnlag
 
-Dokumentversjon: 13
+Dokumentversjon: 14
 
-Sist kontrollert mot lokal kode: 2026-10-23
+Sist kontrollert mot lokal kode: 2026-11-05
 
 Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte krav til senere endringer. Krav merket som planlagt er ikke implementert. Opplysninger om Firebase-kontoer og aksepterte risikoer er bekreftet av brukeren; produksjonsnettstedet og aktive Firebase-innstillinger er ikke kontrollert av Codex. **Må Sjekkes** markerer gjenstående kontrollpunkter.
 
@@ -15,6 +15,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Ved applikasjonsendringer skal appversjonen økes med 1 og relevante versjonsreferanser i dokumentasjon og tester oppdateres. Appen skal ha et versjonsnummer i koden. Versjonen vises høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget og uten å redusere plassen til varelinjer.
 * Dokumentendringer alene øker bare dokumentversjonen. Fremtidige oppgaver i denne filen skal utføres når den aktuelle kodeendringen bestilles; de utvider ikke omfanget av en oppgave som bare gjelder prosjektfilen.
 * Ikke list lange endringer i chat.
+* Når endringer er gjort skal `D:\GIT\ShoppingList-NoBackend\ShoppigList Prosjekt.md` oppdateres så den alltid er konsistent med koden.
 * Hvis noe må testes av brukeren, be om kun én test av gangen og vent på svar.
 * Når jeg bruker "Du", "Deg" eller lignende, refererer dette til Codex ChatGPT.
 * Handleliste bruker Firebase-prosjektet `handleliste-3bdaa`. Endringer må ikke ødelegge data, regler eller innlogging for `/handleliste` eller andre apper som deler databasen.
@@ -33,7 +34,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Målplattform: Android Chrome. Responsiv layout finnes; øvrig nettleserkompatibilitet er ikke bekreftet.
 * Ingen egen backend kjøres i repoet. Firebase Authentication og Realtime Database brukes direkte fra nettleseren.
 * PWA, service worker og lokal offline-handleliste er implementert. Android-installasjon og ekte auth/realtime gjenstår som manuell kontroll etter publisering.
-* Appversjon **9** er definert sentralt i `docs/js/version.js` og vises som `v9` på forsiden.
+* Appversjon **10** er definert sentralt i `docs/js/version.js` og vises som `v10` på forsiden.
 
 ## Formål
 
@@ -70,7 +71,7 @@ Ingen egen global butikkinnstilling, angrefunksjon for kjøp eller deduplisering
 
 * `docs/login.html` bruker email/password gjennom `signInUser()`.
 * Klienten tillater UID-ene `ZDq6ZGvDVDafX8BVlWGRhBoSn9X2` og `fmVOzYiAtsOUNnUE33VZbwHR0SG3`. De samme UID-ene står i den lokale regelfilen.
-* `waitForAuth()` brukes før databaseoperasjoner. Manglende autorisert bruker eller timeout (5 sekunder) fører til login-siden.
+* `waitForAuth()` brukes før databaseoperasjoner. Bekreftet manglende autorisert bruker fører til login-siden når nettleseren melder nett. Timeout (5 sekunder) betyr ukjent auth-status og gir ingen login-redirect; lokal liste og ventende kjøp beholdes.
 * `browserLocalPersistence` er konfigurert for innlogging mellom nettleserøkter. Dette er ikke en garanti for at ny innlogging aldri kreves.
 * Registrering og password reset er ikke implementert i appen.
 * Logout-funksjonen finnes, men knappen i `index.html` er kommentert ut.
@@ -166,6 +167,8 @@ Fra appversjon 7 viser forsiden først "Legg til" når Firebase er tilkoblet, ha
 
 Fra appversjon 8 vises en kort feiltekst over tilkoblingsknappen ved feil, uten popup. Teksten angir om feilen oppstod ved lesing, klargjøring eller lagring av et ventende kjøp, med faktisk error name/code/message. Ved timeout angis steget som ventet på bekreftelse; navigator-offline har egen tekst. Meldingen forsvinner først når appen er klar igjen og caches ikke som brukerdata. I isolerte tester er en umiddelbar feil i v7 gjenskapt med objektbasert `BoughtDate`: spread av et objekt stopper hele køen. v8 støtter array, objekt med datostrenger, enkeltstående string og manglende historikk, og fjerner bare null/hull. Historikkstrenger beholdes i eksisterende rekkefølge, med samme grense på ti datoer ved kjøp. `BuyNumber` støtter eksisterende number og konverterbare numeriske strings; ugyldig historikk/teller gir konkret feilmelding og beholder kjøpet. Ingen bulkendring av historikk eller produksjonsdata er utført. Brukeren bekreftet 2026-10-07 at telefonen straks etter nedlasting av v8 koblet til databasen og synkroniserte alle tre ventende kjøp uten feilmelding. PC-nettstedet ble automatisk oppdatert via Realtime. Den observerte feilen er dermed løst på den berørte telefonen; den nøyaktige datatypefeilen der ble ikke logget og er ikke bekreftet.
 
+Fra appversjon 10 deler waitForAuth() bare et pågående venteforsøk. Promise nullstilles etter timeout eller fullført venting, og hvert kall kontrollerer siste auth-status. Den permanente auth-observeren beholder forsinkede svar slik at eksisterende automatisk retry, reconnect-knapp og foreground kan gjenopprette forbindelsen uten refresh. Utdaterte forsinkede login-redirects kontrollerer auth og nett på nytt. Bekreftet manglende auth eller uautorisert UID tømmer lokal cache og blokkerer databaseoperasjoner. Feilen er gjenskapt med isolerte SDK-mocks mot gammel kode; ekte Android-verifikasjon gjenstår etter publisering. Firebase-regler, kontoer og produksjonsdata er ikke endret.
+
 Ved gjenopprettet Firebase-forbindelse og autorisert auth leses hver ventende vare før kjøpsregistreringen oppdateres. Person/dato fra offline-kjøpet brukes, teller økes og inntil ti datoer beholdes. Varer som allerede er kjøpt eller slettet, kvitteres uten nytt kjøp eller gjenopprettelse. Ventende kjøp fjernes først etter bekreftet write; nettverksfeil beholder dem til ny forbindelse eller oppstart. Samtidighet med andre brukere håndteres som avtalt uten transaction. Logout og bekreftet manglende auth/tilgang tømmer den lokale listen.
 
 Automatiserte tester bruker kun isolerte fixtures.
@@ -183,7 +186,7 @@ Automatiserte tester bruker kun isolerte fixtures.
 | `docs/js/firebase-init.js` | Firebase-konfigurasjon, SDK, UID-allowlist, persistence og auth-funksjoner. |
 | `docs/js/common.js` | Lokal lagring, skriftstørrelse, sortering, langt trykk og navigasjon. |
 | `docs/js/dates.js` | Oslo-dato, datovalidering og kalenderbasert filter. |
-| `docs/js/version.js` | Sentralt appversjonsnummer, nå 9. |
+| `docs/js/version.js` | Sentralt appversjonsnummer, nå 10. |
 | `tests/app.test.cjs` | Automatiserte tester med isolert Firebase-/DOM-mock. |
 | `tools/README.md` | Upubliserte hjelpefiler og oppdaterte lokale lenker. |
 | `docs/js/main.js` | Realtime hovedliste, forbindelsesstatus og synkronisering av kjøp. |
@@ -283,6 +286,8 @@ Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjon
 Ved tilbakeføring reverseres den konkrete feilaktige committen med `git revert`, etter kontroll av lokale endringer. En eldre nettstedversjon reverserer ikke databaseendringer eller Firebase-regler. Før senere endringer i regler eller datamodell sikres gjeldende regler og nødvendige data separat.
 
 ## Endringslogg for prosjektfilen
+
+* **2026-11-05 – dokumentversjon 14, appversjon 10:** Rettet permanent avvist auth-Promise etter timeout og feilaktig login-redirect ved ukjent auth-status. Nye isolerte regresjonstester dekker forsinket auth, automatisk/manuelt reconnect, gjentatte timeouts, foreground og fortsatt tilgangskontroll. Appversjon, service worker-cache og gjeldende dokumentasjon er oppdatert. 45 isolerte tester passerer, og git diff --check er uten feil. Android-kontroll gjenstår; ingen publisering utført.
 
 * **2026-10-23 – dokumentversjon 13, appversjon 9:** Kjøpte offline-varer får lysegrønn bakgrunn på hele varelinjen, med beholdt overstrykning og uten nedtoning for bedre lesbarhet. Service worker-cache og relevante versjonsreferanser er oppdatert. Visuell Android-kontroll gjenstår etter publisering.
 

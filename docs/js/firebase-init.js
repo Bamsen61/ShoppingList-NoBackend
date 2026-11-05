@@ -46,68 +46,33 @@ let isAuthenticated = false;
 let authPromise = null;
 let authStateLoaded = false;
 
-function waitForAuth() {
-  if (authPromise) return authPromise;
-  
-  authPromise = new Promise((resolve, reject) => {
-    // If we already know the auth state and user is authenticated
-    if (authStateLoaded && isAuthenticated) {
-      resolve();
-      return;
+let resolveAuthState;
+
+async function waitForAuth() {
+  if (!authStateLoaded) {
+    // Share only the pending attempt. A timeout must not poison later retries.
+    if (!authPromise) {
+      authPromise = new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => reject(new Error('Auth timeout')), 5000);
+        resolveAuthState = () => { clearTimeout(timeoutId); resolve(); };
+      }).finally(() => {
+        authPromise = null;
+        resolveAuthState = null;
+      });
     }
-    
-    // If we already know the auth state and user is NOT authenticated
-    if (authStateLoaded && !isAuthenticated) {
-      console.log("❌ Not authenticated, redirecting to login...");
-      // Add delay to prevent infinite loops
-      setTimeout(() => {
-        if (!window.location.pathname.includes('login.html')) {
-          window.location.href = 'login.html';
-        }
-      }, 500);
-      reject(new Error('Not authenticated'));
-      return;
+    await authPromise;
+  }
+
+  // Always recheck the latest state, including after a previous successful wait.
+  if (isAuthenticated) return;
+  clearOfflineList();
+  setTimeout(() => {
+    if (authStateLoaded && !isAuthenticated && navigator.onLine !== false &&
+        !window.location.pathname.includes('login.html')) {
+      window.location.href = 'login.html';
     }
-    
-    console.log("🔐 Waiting for authentication state to load...");
-    
-    // Wait up to 5 seconds for auth state to be determined
-    let timeoutId;
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      authStateLoaded = true;
-      unsubscribe(); // Stop listening once we get the first result
-      clearTimeout(timeoutId);
-      
-      if (isAuthorizedUser(user)) {
-        console.log("✅ User authenticated:", user.email);
-        isAuthenticated = true;
-        resolve();
-      } else {
-        if (user) signOut(auth).catch(console.error);
-        console.log("❌ No authenticated user, redirecting to login...");
-        isAuthenticated = false;
-        // Add delay to prevent infinite loops
-        setTimeout(() => {
-          if (!window.location.pathname.includes('login.html')) {
-            window.location.href = 'login.html';
-          }
-        }, 500);
-        reject(new Error('Not authenticated'));
-      }
-    });
-    
-    // Timeout after 5 seconds if no auth state is received
-    timeoutId = setTimeout(() => {
-      unsubscribe();
-      console.log("⏰ Auth state timeout, redirecting to login...");
-      if (!window.location.pathname.includes('login.html')) {
-        window.location.href = 'login.html';
-      }
-      reject(new Error('Auth timeout'));
-    }, 5000);
-  });
-  
-  return authPromise;
+  }, 500);
+  throw new Error('Not authenticated');
 }
 
 // Function to sign in with email and password
@@ -152,7 +117,10 @@ onAuthStateChanged(auth, (user) => {
     if (user) signOut(auth).catch(console.error);
     console.log("👤 User not authenticated");
     isAuthenticated = false;
+    clearOfflineList();
   }
+  // This observer stays active even when a wait times out.
+  resolveAuthState?.();
 });
 
 export { db, ref, get, set, push, update, remove, child, onValue, goOffline, goOnline, auth, waitForAuth, signInUser, signOutUser, isAuthorizedUser };

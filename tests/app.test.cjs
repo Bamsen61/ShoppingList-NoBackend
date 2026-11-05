@@ -15,7 +15,7 @@ class Element {
   scrollIntoView() { this.scrolled=true; }
 }
 
-async function app(entry, { data={}, person, now='2026-10-01T22:30:00Z', search='', online=true, stored=[], failWrite=false, failRead=false, databaseOnline=online, restartConnects=true, holdWrite, authReady }={}) {
+async function app(entry, { data={}, person, now='2026-10-01T22:30:00Z', search='', online=true, stored=[], failWrite=false, failRead=false, databaseOnline=online, restartConnects=true, holdWrite, authReady, realAuth=false }={}) {
   const records=structuredClone(data), writes=[], alerts=[], routes=[], elements={}, documentEvents={}, windowEvents={}, logs=[];
   const storage=new Map(stored); if(person) storage.set('person',person);
   const navigator={onLine:online};
@@ -30,7 +30,7 @@ async function app(entry, { data={}, person, now='2026-10-01T22:30:00Z', search=
   const document={visibilityState:'visible',referrer:'https://example.test/markitemtobuy.html', body:new Element(),
     getElementById(id) { if(elements[id]) return elements[id]; for(const e of Object.values(elements)) { const found=e.children.find(c=>c.id===id); if(found) return found; } return elements[id]=new Element(); },
     createElement:()=>new Element(), addEventListener:(name,fn)=>documentEvents[name]=fn};
-  const window={location:{search,replace:url=>routes.push(url),origin:'https://example.test'},history:{length:8,back:()=>{throw Error('History back must not be used');}},addEventListener:(name,fn)=>windowEvents[name]=fn,setTimeout:later};
+  const window={location:{pathname:'/index.html',search,replace:url=>routes.push(url),origin:'https://example.test'},history:{length:8,back:()=>{throw Error('History back must not be used');}},addEventListener:(name,fn)=>windowEvents[name]=fn,setTimeout:later};
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [now])); } }
   const context=vm.createContext({document,window,navigator,Date:Clock,Intl,URLSearchParams,URL,console:{log:(...args)=>logs.push(args),warn:(...args)=>logs.push(args),error:(...args)=>logs.push(args)},setTimeout:later,clearTimeout:cancel,
     localStorage:{getItem:key=>storage.get(key),setItem:(key,val)=>storage.set(key,val)},alert:msg=>alerts.push(msg),confirm:()=>true});
@@ -43,22 +43,44 @@ async function app(entry, { data={}, person, now='2026-10-01T22:30:00Z', search=
     remove:async key=>{writes.push(['remove',key]);delete records[key.split('/')[1]];},
     onValue:(key,fn,error)=>{const listener={key,fn,error,active:true};listeners.push(listener);fn({val:()=>key==='.info/connected'?databaseConnected:structuredClone(records)});return ()=>listener.active=false;},goOffline:()=>{transport.push('offline');connect(false);},goOnline:()=>{transport.push('online');if(restartConnects) connect(navigator.onLine);},set:()=>{},child:()=>{},signOutUser:()=>{}};
   const mock=new vm.SyntheticModule(Object.keys(firebase),function(){for(const [key,val] of Object.entries(firebase)) this.setExport(key,val);},{context});
+  const auth={currentUser:null}, authListeners=new Set(), signouts=[];
+  const sdk={
+    'firebase-app.js':{initializeApp:()=>({})},
+    'firebase-database.js':{getDatabase:()=>firebase.db,...Object.fromEntries(['ref','get','set','push','update','remove','child','onValue','goOffline','goOnline'].map(key=>[key,firebase[key]]))},
+    'firebase-auth.js':{
+      getAuth:()=>auth, browserLocalPersistence:{}, setPersistence:async()=>{},
+      onAuthStateChanged:(_,fn)=>{authListeners.add(fn);return ()=>authListeners.delete(fn);},
+      signInWithEmailAndPassword:async()=>({user:auth.currentUser}),
+      signOut:async()=>{signouts.push(true);emitAuth(null);}
+    }
+  };
+  function emitAuth(user) {
+    auth.currentUser=user;
+    for(const fn of [...authListeners]) fn(user);
+  }
+  const sdkModules=new Map(Object.entries(sdk).map(([name,exports])=>[name,new vm.SyntheticModule(Object.keys(exports),function(){
+    for(const [key,value] of Object.entries(exports)) this.setExport(key,value);
+  },{context})]));
   const modules=new Map();
   function load(file) {
-    if(path.basename(file)==='firebase-init.js') return mock;
+    if(!realAuth && path.basename(file)==='firebase-init.js') return mock;
     assert.ok(file.startsWith(path.join(root,'docs','js')+path.sep),'Module must be local app code');
     if(!modules.has(file)) modules.set(file,new vm.SourceTextModule(fs.readFileSync(file,'utf8'),{context,identifier:file}));
     return modules.get(file);
   }
   const module=load(path.join(root,'docs','js',entry));
   await module.link((specifier,parent)=>{
+    if(realAuth && specifier.startsWith('https://www.gstatic.com/firebasejs/9.23.0/')) {
+      const sdkModule=sdkModules.get(specifier.split('/').at(-1));
+      assert.ok(sdkModule,'Only isolated SDK mocks may be imported');return sdkModule;
+    }
     assert.ok(specifier.startsWith('./'),'Network and external imports are blocked');
     return load(path.resolve(path.dirname(parent.identifier),specifier));
   });
   await module.evaluate();
   const flush=()=>new Promise(resolve=>setImmediate(resolve));
   const ready=async()=>{if(documentEvents.DOMContentLoaded) await documentEvents.DOMContentLoaded(); if(windowEvents.DOMContentLoaded) await windowEvents.DOMContentLoaded(); await flush();};
-  return {advanceTime,timers,listeners,transport,documentEvents,module,records,writes,alerts,routes,elements,document,window,windowEvents,navigator,storage,ready,flush,logs,allow:()=>authorized=true,deny:()=>authorized=false,emit:()=>listeners.filter(l=>l.active&&l.key==='handleliste').forEach(l=>l.fn({val:()=>structuredClone(records)})),connect};
+  return {emitAuth,authListeners,signouts,advanceTime,timers,listeners,transport,documentEvents,module,records,writes,alerts,routes,elements,document,window,windowEvents,navigator,storage,ready,flush,logs,allow:()=>authorized=true,deny:()=>authorized=false,emit:()=>listeners.filter(l=>l.active&&l.key==='handleliste').forEach(l=>l.fn({val:()=>structuredClone(records)})),connect};
 }
 
 test('Oslo date around midnight and daylight saving changes',async()=>{
@@ -92,7 +114,7 @@ test('purchase uses default Morten, Oslo date, increments count and preserves te
   for(const person of [undefined,'Linh']) {
     const history=Array.from({length:10},(_,i)=>'2026-09-'+String(30-i).padStart(2,'0'));
     const a=await app('main.js',{person,data:{fixture:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:7,BoughtDate:history}}});await a.ready();
-    assert.equal(a.elements.appVersion.textContent, "v9");
+    assert.equal(a.elements.appVersion.textContent, "v10");
     a.elements.itemList.children[0].events.pointerup({});await a.flush();
     const fields=a.writes[0][2];assert.equal(fields.BoughtBy,person||'Morten');assert.equal(fields.BuyNumber,8);assert.equal(fields.Buy,false);
     assert.deepEqual(fields.BoughtDate,['2026-10-02',...history.slice(0,9)]);
@@ -139,7 +161,7 @@ test('publication contains only necessary app files and all local references res
   }
   const source=fs.readFileSync(path.join(root,'docs/js/firebase-init.js'),'utf8');assert.match(source,/ZDq6ZGvDVDafX8BVlWGRhBoSn9X2/);assert.match(source,/fmVOzYiAtsOUNnUE33VZbwHR0SG3/);
   assert.match(fs.readFileSync(path.join(root,'docs/index.html'),'utf8'),/<!-- <button onclick="logout\(\)"/);
-  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 9;/);
+  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 10;/);
 });
 
 test('offline restart shows only shopping rows, persists marks and prevents navigation/editing',async()=>{
@@ -213,13 +235,13 @@ test('service worker precaches shell/SDK, provides offline navigation and never 
   let offline=false,fetches=0;
   const cache={addAll:async requests=>{for(const request of requests) { assert.equal(request.cache,'no-store');cached.set(request.url,{url:request.url,installed:true}); }},match:async request=>cached.get(typeof request==='string'?request:request.url)};
   const context=vm.createContext({URL,Request,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{},matchAll:async()=>[]},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},
-    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9','another-app'],delete:async key=>deleted.push(key)},
+    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9','handleliste-shell-v10','another-app'],delete:async key=>deleted.push(key)},
     fetch:async request=>{fetches++;if(offline) throw Error('offline');return {url:request.url,ok:true,installed:false};}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
   for(const url of cached.keys()) if(url.startsWith(base)) assert.ok(fs.existsSync(path.join(root,'docs',url.slice(base.length))),url);
   assert.ok(cached.has('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js'));
-  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v7','handleliste-shell-v8']);
+  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9']);
   function fetchEvent(url,mode='cors',method='GET') { let response;events.fetch({request:{url,mode,method},respondWith:p=>response=p});return response; }
   const online=await fetchEvent(base+'index.html','navigate');assert.equal(online.installed,true);
   offline=true;
@@ -236,15 +258,15 @@ test('new service worker cannot populate its shell with v2 modules from the HTTP
   const cache={addAll:async requests=>{
     for(const request of requests) {
       // Reproduce Chrome holding the old version.js in its separate HTTP cache.
-      const source=request.cache==='no-store' ? 'APP_VERSION = 9' : 'APP_VERSION = 2';
+      const source=request.cache==='no-store' ? 'APP_VERSION = 10' : 'APP_VERSION = 2';
       stored.set(request.url,source);
     }
   }};
   const context=vm.createContext({URL,Request,self:{location:{href:base+'sw.js'},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>cache}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
-  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 9');
-  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 9');
+  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 10');
+  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 10');
 });
 
 async function updateApp({online=true,update=async()=>{},waiting=null,failRegistration=false}={}) {
@@ -473,4 +495,74 @@ test('invalid history or counter reports a data error and retains the purchase',
     assert.equal(a.writes.length,0);assert.ok(JSON.parse(a.storage.get('handleliste.offline.v1')).pending.one);
     assert.match(a.elements.connectionStatus.textContent,/Klargjøring av kjøp:.*Invalid purchase/);
   }
+});
+
+const authorizedUser={uid:'ZDq6ZGvDVDafX8BVlWGRhBoSn9X2',email:'fixture@example.test'};
+const pendingAuthState={items:[{id:'coffee',Name:'Kaffe',Shop:'Extra'}],pending:{coffee:{person:'Linh',date:'2026-11-05'}}};
+
+test('real auth timeout retains offline purchases and recovers automatically after late auth',async()=>{
+  const a=await app('main.js',{realAuth:true,stored:[['handleliste.offline.v1',JSON.stringify(pendingAuthState)]],
+    data:{coffee:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:4}}});
+  await a.ready();await a.advanceTime(5000);
+  assert.match(a.elements.connectionStatus.textContent,/Auth timeout/);
+  assert.equal(a.window.location.href,undefined);
+  assert.deepEqual(JSON.parse(a.storage.get('handleliste.offline.v1')),pendingAuthState);
+  assert.equal(a.writes.length,0);
+  a.emitAuth(authorizedUser);await a.flush();await a.advanceTime(5000);await a.flush();
+  assert.equal(a.elements.addButton.textContent,'Legg til');
+  assert.equal(a.elements.connectionStatus.hidden,true);
+  assert.equal(a.writes.length,1);assert.equal(a.records.coffee.BoughtBy,'Linh');
+  assert.deepEqual(JSON.parse(a.storage.get('handleliste.offline.v1')).pending,{});
+});
+
+test('real auth retries repeated timeouts and manual reconnect without a reload',async()=>{
+  const a=await app('main.js',{realAuth:true});await a.ready();
+  await a.advanceTime(5000);await a.advanceTime(5000);await a.advanceTime(5000);
+  assert.equal(a.window.location.href,undefined);
+  assert.equal(a.authListeners.size,1,'Only the persistent auth observer remains after timeout');
+  a.emitAuth(authorizedUser);a.elements.addButton.events.click();await a.flush();
+  assert.equal(a.elements.addButton.textContent,'Legg til');
+  assert.equal(a.elements.addButton.disabled,false);
+});
+
+test('real auth waiters share only an in-flight attempt and recheck changed auth',async()=>{
+  const a=await app('firebase-init.js',{realAuth:true});
+  const wait=a.module.namespace.waitForAuth;
+  const first=assert.rejects(wait(),/Auth timeout/),second=assert.rejects(wait(),/Auth timeout/);
+  await a.advanceTime(5000);await Promise.all([first,second]);
+  const next=wait();a.emitAuth(authorizedUser);await next;await wait();
+  a.emitAuth(null);await assert.rejects(wait(),/Not authenticated/);
+  a.emitAuth(authorizedUser);await a.advanceTime(500);await wait();
+  assert.equal(a.window.location.href,undefined,'Stale login redirect must be cancelled after auth recovery');
+});
+
+test('confirmed missing or unauthorized auth still blocks database access and clears cache',async()=>{
+  for(const user of [null,{uid:'unauthorized-fixture'}]) {
+    const a=await app('main.js',{realAuth:true,stored:[['handleliste.offline.v1',JSON.stringify(pendingAuthState)]]});
+    await a.ready();a.emitAuth(user);await a.flush();await a.advanceTime(500);
+    assert.equal(a.writes.length,0);assert.equal(a.listeners.length,0);
+    assert.deepEqual(JSON.parse(a.storage.get('handleliste.offline.v1')),{items:[],pending:{}});
+    assert.equal(a.window.location.href,'login.html');
+    assert.equal(a.signouts.length,user?1:0);
+  }
+});
+
+test('offline-online during real auth timeout retains queue and recovers on foreground',async()=>{
+  const a=await app('main.js',{realAuth:true,stored:[['handleliste.offline.v1',JSON.stringify(pendingAuthState)]],
+    data:{coffee:{Name:'Kaffe',Buy:true,BuyNumber:4}}});
+  await a.ready();a.navigator.onLine=false;a.windowEvents.offline();await a.advanceTime(5000);
+  assert.equal(a.window.location.href,undefined);assert.equal(a.writes.length,0);
+  a.navigator.onLine=true;a.windowEvents.online();await a.flush();
+  a.emitAuth(authorizedUser);await a.flush();await a.flush();
+  assert.equal(a.elements.addButton.textContent,'Legg til');assert.equal(a.writes.length,1);
+});
+
+test('late real auth after background timeout recovers on focus without manual reconnect',async()=>{
+  const a=await app('main.js',{realAuth:true,data:{coffee:{Name:'Kaffe',Buy:true}}});await a.ready();
+  a.document.visibilityState='hidden';a.documentEvents.visibilitychange();await a.advanceTime(5000);
+  assert.equal(a.window.location.href,undefined);assert.equal(a.timers.size,0);
+  a.emitAuth(authorizedUser);await a.flush();
+  a.document.visibilityState='visible';a.documentEvents.visibilitychange();a.windowEvents.focus();await a.flush();
+  assert.equal(a.elements.addButton.textContent,'Legg til');
+  assert.equal(a.listeners.filter(l=>l.active&&l.key==='handleliste').length,1);
 });
