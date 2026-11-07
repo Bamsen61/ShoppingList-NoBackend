@@ -1,6 +1,6 @@
 # ShoppingList-NoBackend
 
-Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **10** er definert i docs/js/version.js og vises som `v10` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. Installér appen som **Handleliste** fra Chrome. Offline viser den sist lagrede handlelisten og lar deg markere kjøp med lysegrønn bakgrunn og overstrykning, uten nedtonet tekst. Kjøp synkroniseres automatisk når Firebase-forbindelsen er tilbake. Første innlogging og caching krever internett.
+Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **11** er definert i docs/js/version.js og vises som `v11` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. Installér appen som **Handleliste** fra Chrome. Offline viser den sist lagrede handlelisten og lar deg markere kjøp med lysegrønn bakgrunn og overstrykning, uten nedtonet tekst. Kjøp synkroniseres automatisk når Firebase-forbindelsen er tilbake. Første innlogging og caching krever internett.
 
 ## Lokal kjøring
 
@@ -36,3 +36,5 @@ Manifest, service worker og ikoner publiseres fra docs/. Relative stier fungerer
 Fra v4 bypasser precache nettleserens HTTP-cache for å unngå blanding av gamle moduler og ny HTML. Fra v5 lastes åpne Handleliste-vinduer automatisk på nytt når en ny service worker overtar. Ventende kjøp og persistent auth beholdes ved oppdatering.
 
 «Koble til internett» prøver databasen igjen uten popup. Ved manglende kontakt blinker knappen rødt to ganger (umiddelbart uten nett, ellers etter feil eller fem sekunder).
+
+Fra v11 leveres installerte appsider direkte fra service worker-cache uten å vente på nettverk. Den lagrede handlelisten vises og kan brukes mens auth, tilkobling og oppdateringssjekk arbeider i bakgrunnen. Rotadressen og URL-er med query-parametere bruker også cache.

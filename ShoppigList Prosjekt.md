@@ -1,8 +1,8 @@
 # ShoppingList – prosjektbeskrivelse og driftsgrunnlag
 
-Dokumentversjon: 14
+Dokumentversjon: 15
 
-Sist kontrollert mot lokal kode: 2026-11-05
+Sist kontrollert mot lokal kode: 2026-11-07
 
 Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte krav til senere endringer. Krav merket som planlagt er ikke implementert. Opplysninger om Firebase-kontoer og aksepterte risikoer er bekreftet av brukeren; produksjonsnettstedet og aktive Firebase-innstillinger er ikke kontrollert av Codex. **Må Sjekkes** markerer gjenstående kontrollpunkter.
 
@@ -34,7 +34,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Målplattform: Android Chrome. Responsiv layout finnes; øvrig nettleserkompatibilitet er ikke bekreftet.
 * Ingen egen backend kjøres i repoet. Firebase Authentication og Realtime Database brukes direkte fra nettleseren.
 * PWA, service worker og lokal offline-handleliste er implementert. Android-installasjon og ekte auth/realtime gjenstår som manuell kontroll etter publisering.
-* Appversjon **10** er definert sentralt i `docs/js/version.js` og vises som `v10` på forsiden.
+* Appversjon **11** er definert sentralt i `docs/js/version.js` og vises som `v11` på forsiden.
 
 ## Formål
 
@@ -161,6 +161,8 @@ Appnavnet er **Handleliste**, med blått embossed ikon og en stilisert handlevog
 
 Service worker cacher appsider, CSS, JavaScript, ikoner og Firebase SDK-modulene som trengs ved offline-oppstart. Auth- og databasesvar caches ikke av service worker. Første innlogging og lasting av handlelisten krever internett; offline virker først etter vellykket installasjon av service worker og lagring av listen. Fra appversjon 5 sjekkes service worker eksplisitt ved oppstart, focus, pageshow, synlig visibilitychange og gjenopprettet nett. Samtidige sjekker samles mens en sjekk kjører. Ny worker aktiveres automatisk med skipWaiting først etter fullstendig precache; gamle Handleliste-ressurscacher ryddes ved aktivering. Fra appversjon 4 hentes alle precache-ressurser med `cache: no-store`, slik at eldre filer i nettleserens HTTP-cache ikke lagres i den nye service worker-cachen. Ny worker tar kontroll og laster åpne Handleliste-vinduer på nytt til samme URL, også eldre v3/v4-vinduer. Andre apper på samme origin berøres ikke. Dette kan nullstille ulagrede skjemafelt når en oppdatering aktiveres. Ingen reload gjøres når serverens worker er uendret. Uten nett eller ved mislykket nedlasting beholdes installert app; neste fokus/nett-hendelse prøver igjen. Innlogging, lokal handleliste og ventende kjøp beholdes. Første overgang fra v3/v4 krever én vanlig navigasjon/lasting av appadressen, siden disse versjonene ikke har fokus-sjekken; etter at v5 er lastet, gjelder automatisk fokus-sjekk ved senere oppdateringer.
 
+Fra appversjon 11 leverer service worker installerte appsider direkte fra ressurscachen uten først å vente på nettverk. Dette gjelder også rotadressen og sider med query-parametere; query beholdes i nettleseren mens riktig HTML hentes fra cache. Ukjent side faller tilbake til den cachede hovedsiden. Nettverk brukes bare dersom begge mangler i cache. Hovedsiden viser den lokale listen før auth og Firebase-tilkobling er avklart, og kjøp kan markeres mens forbindelsen venter. Oppdateringssjekk fortsetter separat i bakgrunnen. En isolert test gjenskaper den tidligere oppstartsblokkeringen med et nettverkskall som aldri svarer; Android-kontroll gjenstår etter publisering.
+
 Når navigator eller Firebase melder manglende forbindelse, vises den lagrede handlelisten. Knappen heter «Koble til internett». Trykk starter straks et nytt tilkoblingsforsøk uten popup. Hvis nett mangler, forsøket feiler eller Firebase ikke svarer innen fem sekunder, blinker knappens bakgrunn rødt to ganger. Knappen er midlertidig deaktivert mens forsøket kjører, og blir tilgjengelig igjen etterpå. Automatisk tilkobling/synkronisering fortsetter selv om forsøket har gitt feilblink. Bare visning og merking av kjøp er tilgjengelig; redigering, andre sider og innstillingsendringer er sperret. Trykk merker varen med lysegrønn bakgrunn på hele varelinjen og overstrykning, uten nedtonet tekst (fra appversjon 9), og lagrer valgt person og Oslo-dato. Gjentatte trykk gir ikke flere kjøp. Lokal lagringsfeil gir beskjed uten å markere varen som lagret.
 
 Fra appversjon 7 viser forsiden først "Legg til" når Firebase er tilkoblet, handlelistens listener har levert data og alle ventende kjøp er kvittert. Tilkoblingsknappen starter selve SDK-forbindelsen på nytt med `goOffline()`/`goOnline()`, uten å slette ventende writes. Synkroniseringsfeil avslutter ikke lenger et manuelt forsøk som vellykket før feilen oppstår. Ved midlertidig feil eller frakobling prøves tilkobling igjen etter 5, 10, 20 og deretter maksimalt 30 sekunder mellom forsøk. Focus, synlig visibilitychange, pageshow og online starter også nytt forsøk når appen ikke er klar. Samtidige oppsett samles; gamle listener-callbacks ignoreres. Bakgrunn, pagehide og manglende nett stopper retry-timeren. Bekreftet manglende auth/permission-denied tømmer lokal liste og stopper automatisk retry. En write som fortsatt venter på serverens kvittering beholder synkroniseringslåsen gjennom reconnect, slik at samme kjøp ikke sendes på nytt av en parallell synkronisering. Gjenopprettet tilkobling og synkronisering på den berørte Android-telefonen er bekreftet av brukeren etter publisering av v8.
@@ -186,7 +188,7 @@ Automatiserte tester bruker kun isolerte fixtures.
 | `docs/js/firebase-init.js` | Firebase-konfigurasjon, SDK, UID-allowlist, persistence og auth-funksjoner. |
 | `docs/js/common.js` | Lokal lagring, skriftstørrelse, sortering, langt trykk og navigasjon. |
 | `docs/js/dates.js` | Oslo-dato, datovalidering og kalenderbasert filter. |
-| `docs/js/version.js` | Sentralt appversjonsnummer, nå 10. |
+| `docs/js/version.js` | Sentralt appversjonsnummer, nå 11. |
 | `tests/app.test.cjs` | Automatiserte tester med isolert Firebase-/DOM-mock. |
 | `tools/README.md` | Upubliserte hjelpefiler og oppdaterte lokale lenker. |
 | `docs/js/main.js` | Realtime hovedliste, forbindelsesstatus og synkronisering av kjøp. |
@@ -286,6 +288,8 @@ Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjon
 Ved tilbakeføring reverseres den konkrete feilaktige committen med `git revert`, etter kontroll av lokale endringer. En eldre nettstedversjon reverserer ikke databaseendringer eller Firebase-regler. Før senere endringer i regler eller datamodell sikres gjeldende regler og nødvendige data separat.
 
 ## Endringslogg for prosjektfilen
+
+* **2026-11-07 – dokumentversjon 15, appversjon 11:** Rettet nettverksventing før cached HTML ble levert ved oppstart. Appsider og oppstartsressurser leveres direkte fra cache; rotadresse og query-parametere er dekket. Regresjonstest feiler mot gammel kode ved hengende nettverk. Separat test bekrefter umiddelbar visning og lokal kjøpsmarkering mens auth venter. 47 isolerte tester passerer, og git diff --check er uten feil. Android-kontroll gjenstår; ingen publisering utført.
 
 * **2026-11-05 – dokumentversjon 14, appversjon 10:** Rettet permanent avvist auth-Promise etter timeout og feilaktig login-redirect ved ukjent auth-status. Nye isolerte regresjonstester dekker forsinket auth, automatisk/manuelt reconnect, gjentatte timeouts, foreground og fortsatt tilgangskontroll. Appversjon, service worker-cache og gjeldende dokumentasjon er oppdatert. 45 isolerte tester passerer, og git diff --check er uten feil. Android-kontroll gjenstår; ingen publisering utført.
 

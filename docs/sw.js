@@ -1,4 +1,4 @@
-const CACHE = 'handleliste-shell-v10';
+const CACHE = 'handleliste-shell-v11';
 const BASE = new URL('./', self.location.href);
 const FILES = [
   'index.html', 'login.html', 'markitemtobuy.html', 'additemtodatabase.html', 'edititem.html',
@@ -45,13 +45,13 @@ self.addEventListener('fetch', event => {
   if (request.mode === 'navigate' && local) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE);
-      try {
-        const response = await fetch(request);
-        // Keep HTML and modules from the same installed app version.
-        if (response.ok) return await cache.match(url.href) || response;
-      }
-      catch { /* Offline navigation always returns the shopping list. */ }
-      return cache.match(new URL('index.html', BASE).href);
+      // Serve the installed shell immediately, even when the network never responds.
+      // Query parameters belong to the page, not its cached HTML resource.
+      const page = new URL(url);
+      page.search = '';
+      if (page.pathname === BASE.pathname) page.pathname += 'index.html';
+      return await cache.match(page.href) ||
+        await cache.match(new URL('index.html', BASE).href) || fetch(request);
     })());
     return;
   }

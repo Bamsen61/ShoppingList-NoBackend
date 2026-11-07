@@ -114,7 +114,7 @@ test('purchase uses default Morten, Oslo date, increments count and preserves te
   for(const person of [undefined,'Linh']) {
     const history=Array.from({length:10},(_,i)=>'2026-09-'+String(30-i).padStart(2,'0'));
     const a=await app('main.js',{person,data:{fixture:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:7,BoughtDate:history}}});await a.ready();
-    assert.equal(a.elements.appVersion.textContent, "v10");
+    assert.equal(a.elements.appVersion.textContent, "v11");
     a.elements.itemList.children[0].events.pointerup({});await a.flush();
     const fields=a.writes[0][2];assert.equal(fields.BoughtBy,person||'Morten');assert.equal(fields.BuyNumber,8);assert.equal(fields.Buy,false);
     assert.deepEqual(fields.BoughtDate,['2026-10-02',...history.slice(0,9)]);
@@ -161,7 +161,7 @@ test('publication contains only necessary app files and all local references res
   }
   const source=fs.readFileSync(path.join(root,'docs/js/firebase-init.js'),'utf8');assert.match(source,/ZDq6ZGvDVDafX8BVlWGRhBoSn9X2/);assert.match(source,/fmVOzYiAtsOUNnUE33VZbwHR0SG3/);
   assert.match(fs.readFileSync(path.join(root,'docs/index.html'),'utf8'),/<!-- <button onclick="logout\(\)"/);
-  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 10;/);
+  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 11;/);
 });
 
 test('offline restart shows only shopping rows, persists marks and prevents navigation/editing',async()=>{
@@ -235,22 +235,23 @@ test('service worker precaches shell/SDK, provides offline navigation and never 
   let offline=false,fetches=0;
   const cache={addAll:async requests=>{for(const request of requests) { assert.equal(request.cache,'no-store');cached.set(request.url,{url:request.url,installed:true}); }},match:async request=>cached.get(typeof request==='string'?request:request.url)};
   const context=vm.createContext({URL,Request,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{},matchAll:async()=>[]},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},
-    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9','handleliste-shell-v10','another-app'],delete:async key=>deleted.push(key)},
+    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9','handleliste-shell-v10','handleliste-shell-v11','another-app'],delete:async key=>deleted.push(key)},
     fetch:async request=>{fetches++;if(offline) throw Error('offline');return {url:request.url,ok:true,installed:false};}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
   for(const url of cached.keys()) if(url.startsWith(base)) assert.ok(fs.existsSync(path.join(root,'docs',url.slice(base.length))),url);
   assert.ok(cached.has('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js'));
-  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9']);
+  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9','handleliste-shell-v10']);
   function fetchEvent(url,mode='cors',method='GET') { let response;events.fetch({request:{url,mode,method},respondWith:p=>response=p});return response; }
   const online=await fetchEvent(base+'index.html','navigate');assert.equal(online.installed,true);
   offline=true;
-  const fallback=await fetchEvent(base+'edititem.html?id=one','navigate');assert.equal(fallback.url,base+'index.html');
+  const edit=await fetchEvent(base+'edititem.html?id=one','navigate');assert.equal(edit.url,base+'edititem.html');
+  const fallback=await fetchEvent(base+'missing.html','navigate');assert.equal(fallback.url,base+'index.html');
   const modules=await fetchEvent(base+'js/main.js');assert.equal(modules.installed,true);
   const sdk=await fetchEvent('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js');assert.equal(sdk.installed,true);
   for(const url of ['https://handleliste-3bdaa-default-rtdb.europe-west1.firebasedatabase.app/handleliste.json','https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword',base+'unlisted.json','https://example.test/other-app/index.html']) assert.equal(fetchEvent(url),undefined);
   assert.equal(fetchEvent(base+'js/main.js','cors','POST'),undefined);
-  assert.equal(fetches,2);
+  assert.equal(fetches,0);
 });
 
 test('new service worker cannot populate its shell with v2 modules from the HTTP cache',async()=>{
@@ -258,15 +259,15 @@ test('new service worker cannot populate its shell with v2 modules from the HTTP
   const cache={addAll:async requests=>{
     for(const request of requests) {
       // Reproduce Chrome holding the old version.js in its separate HTTP cache.
-      const source=request.cache==='no-store' ? 'APP_VERSION = 10' : 'APP_VERSION = 2';
+      const source=request.cache==='no-store' ? 'APP_VERSION = 11' : 'APP_VERSION = 2';
       stored.set(request.url,source);
     }
   }};
   const context=vm.createContext({URL,Request,self:{location:{href:base+'sw.js'},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>cache}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
-  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 10');
-  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 10');
+  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 11');
+  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 11');
 });
 
 async function updateApp({online=true,update=async()=>{},waiting=null,failRegistration=false}={}) {
@@ -565,4 +566,48 @@ test('late real auth after background timeout recovers on focus without manual r
   a.document.visibilityState='visible';a.documentEvents.visibilitychange();a.windowEvents.focus();await a.flush();
   assert.equal(a.elements.addButton.textContent,'Legg til');
   assert.equal(a.listeners.filter(l=>l.active&&l.key==='handleliste').length,1);
+});
+
+
+test('cached navigation and startup assets never wait for an unresponsive network',async()=>{
+  const events={},base='https://example.test/ShoppingList-NoBackend/';
+  let fetches=0;
+  const urls=['index.html','edititem.html','css/style.css','js/main.js',
+    'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js'];
+  const cached=new Map(urls.map(file=>{const url=new URL(file,base).href;return [url,{url,installed:true}];}));
+  const context=vm.createContext({URL,Request,console,
+    self:{location:{href:base+'sw.js'},addEventListener:(name,fn)=>events[name]=fn},
+    caches:{open:async()=>({match:async request=>cached.get(typeof request==='string'?request:request.url)})},
+    fetch:()=>{fetches++;return new Promise(()=>{});}});
+  vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
+  for(const [file,mode,expected] of [
+    ['', 'navigate','index.html'],
+    ['index.html','navigate','index.html'],
+    ['index.html?launch=pwa','navigate','index.html'],
+    ['edititem.html?id=coffee&return=index.html','navigate','edititem.html'],
+    ['missing.html','navigate','index.html'],
+    ['css/style.css','cors','css/style.css'],
+    ['js/main.js','cors','js/main.js'],
+    [urls.at(-1),'cors',urls.at(-1)]
+  ]) {
+    let response;
+    events.fetch({request:{url:new URL(file,base).href,mode,method:'GET'},respondWith:p=>response=p});
+    const result=await Promise.race([response,new Promise(resolve=>setImmediate(()=>resolve(null)))]);
+    assert.ok(result,'Cached response must be delivered without a network timeout: '+file);
+    assert.equal(result.url,new URL(expected,base).href);
+  }
+  assert.equal(fetches,0);
+});
+
+test('saved list is usable immediately while initial auth remains pending',async()=>{
+  const stored=[['handleliste.offline.v1',JSON.stringify({items:[{id:'coffee',Name:'Kaffe',Shop:'Extra'}],pending:{}})]];
+  for(const online of [false,true]) {
+    const a=await app('main.js',{online,stored,authReady:()=>new Promise(()=>{})});
+    await a.ready();
+    assert.equal(a.elements.itemList.children[0].children[0].textContent,'Kaffe');
+    a.elements.itemList.children[0].events.pointerup({});await a.flush();
+    assert.ok(a.elements.itemList.children[0].classes.has('is-bought-offline'));
+    assert.ok(JSON.parse(a.storage.get('handleliste.offline.v1')).pending.coffee);
+    assert.equal(a.writes.length,0);
+  }
 });
