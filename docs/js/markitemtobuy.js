@@ -17,11 +17,11 @@ let availableItems = [];
 let showAllItemsForSession = false;
 
 // ============================================================
-// CHANGE THIS NUMBER TO ADJUST HOW MANY DAYS ARE SHOWN FIRST.
-// The "Legg til" list starts by showing only items bought within
-// this many days. "Vis alle" and the letter sidebar show all items.
+// The "Legg til" list starts with items bought at least twice
+// within this many days. "Vis alle" and the letter sidebar show all items.
 // ============================================================
-const RECENTLY_BOUGHT_DAYS_LIMIT = 50;
+const RECENTLY_BOUGHT_DAYS_LIMIT = 60;
+const RECENTLY_BOUGHT_MINIMUM_PURCHASES = 2;
 
 const FIXED_LETTER_NAV = [
   "0",
@@ -228,7 +228,7 @@ function getTargetLetter(letter, letterTargets) {
 }
 
 function wasBoughtRecently(item) {
-  return wasBoughtWithinDays(item, RECENTLY_BOUGHT_DAYS_LIMIT);
+  return wasBoughtWithinDays(item, RECENTLY_BOUGHT_DAYS_LIMIT, new Date(), RECENTLY_BOUGHT_MINIMUM_PURCHASES);
 }
 
 async function markToBuy(id) {

@@ -14,11 +14,11 @@ function calendarDay(dateText) {
   return date.getTime() / 86400000;
 }
 
-export function wasBoughtWithinDays(item, days, now = new Date()) {
+export function wasBoughtWithinDays(item, days, now = new Date(), minimumPurchases = 1) {
   if (!Array.isArray(item.BoughtDate)) return false;
   const cutoff = calendarDay(getOsloDate(now)) - days;
-  return item.BoughtDate.some(dateText => {
+  return item.BoughtDate.filter(dateText => {
     const day = calendarDay(dateText);
     return day !== null && day >= cutoff;
-  });
+  }).length >= minimumPurchases;
 }

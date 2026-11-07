@@ -1,6 +1,6 @@
 # ShoppingList-NoBackend
 
-Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **11** er definert i docs/js/version.js og vises som `v11` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. Installér appen som **Handleliste** fra Chrome. Offline viser den sist lagrede handlelisten og lar deg markere kjøp med lysegrønn bakgrunn og overstrykning, uten nedtonet tekst. Kjøp synkroniseres automatisk når Firebase-forbindelsen er tilbake. Første innlogging og caching krever internett.
+Felles handleliste med Firebase Authentication (email/password) og Realtime Database. Appversjon **12** er definert i docs/js/version.js og vises som `v12` høyrejustert i forsiden sin eksisterende topplinje, med samme font som personvalget. Installér appen som **Handleliste** fra Chrome. Offline viser den sist lagrede handlelisten og lar deg markere kjøp med lysegrønn bakgrunn og overstrykning, uten nedtonet tekst. Kjøp synkroniseres automatisk når Firebase-forbindelsen er tilbake. Første innlogging og caching krever internett.
 
 ## Lokal kjøring
 
@@ -21,7 +21,7 @@ Node.js 22 eller nyere, uten npm-avhengigheter. Se [TESTING.md](TESTING.md). Tes
 
 ## Funksjoner og tilgang
 
-Handleliste sortert etter butikk og varenavn, nye/eksisterende varer, kjøpshistorikk, redigering og bekreftet sletting. Personvalg (Morten/Linh) og skriftstørrelse lagres lokalt. Standardperson er Morten. Kjøp og 50-dagersfilter bruker Europe/Oslo og YYYY-MM-DD. Eksisterende historikk beholdes.
+Handleliste sortert etter butikk og varenavn, nye/eksisterende varer, kjøpshistorikk, redigering og bekreftet sletting. Personvalg (Morten/Linh) og skriftstørrelse lagres lokalt. Standardperson er Morten. Kortlista under "Legg til" viser varer kjøpt minst to ganger siste 60 kalenderdager, med grensedagen inkludert. Flere kjøp samme dag teller hver for seg. Kjøp og filter bruker Europe/Oslo og YYYY-MM-DD. Eksisterende historikk beholdes.
 
 Bare to tillatte UID-er får tilgang i klienten og lokale regler. Logout er skjult. Aktiv API key-konfigurasjon og aktive regler er ikke verifisert av denne oppdateringen. Se [FIREBASE_SETUP.md](FIREBASE_SETUP.md).
 

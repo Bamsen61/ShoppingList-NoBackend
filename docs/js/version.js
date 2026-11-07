@@ -1,2 +1,2 @@
 // Increased once per application change round.
-export const APP_VERSION = 11;
+export const APP_VERSION = 12;

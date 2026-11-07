@@ -114,14 +114,14 @@ test('purchase uses default Morten, Oslo date, increments count and preserves te
   for(const person of [undefined,'Linh']) {
     const history=Array.from({length:10},(_,i)=>'2026-09-'+String(30-i).padStart(2,'0'));
     const a=await app('main.js',{person,data:{fixture:{Name:'Kaffe',Shop:'Extra',Buy:true,BuyNumber:7,BoughtDate:history}}});await a.ready();
-    assert.equal(a.elements.appVersion.textContent, "v11");
+    assert.equal(a.elements.appVersion.textContent, "v12");
     a.elements.itemList.children[0].events.pointerup({});await a.flush();
     const fields=a.writes[0][2];assert.equal(fields.BoughtBy,person||'Morten');assert.equal(fields.BuyNumber,8);assert.equal(fields.Buy,false);
     assert.deepEqual(fields.BoughtDate,['2026-10-02',...history.slice(0,9)]);
   }
 });
 test('add existing: recent filter, show all, search, letter navigation and write',async()=>{
-  const a=await app('markitemtobuy.js',{data:{recent:{Name:'Kaffe',Shop:'Extra',Buy:false,BoughtDate:['2026-08-13']},old:{Name:'Ål',Shop:'Extra',Buy:false,BoughtDate:['2026-08-12']},active:{Name:'Brød',Buy:true}}});await a.ready();
+  const a=await app('markitemtobuy.js',{data:{recent:{Name:'Kaffe',Shop:'Extra',Buy:false,BoughtDate:['2026-08-03','2026-10-02']},old:{Name:'Ål',Shop:'Extra',Buy:false,BoughtDate:['2026-08-02','2026-10-02']},active:{Name:'Brød',Buy:true}}});await a.ready();
   assert.equal(a.elements.addList.children.length,1);assert.equal(a.elements.addList.children[0].children[0].textContent,'Kaffe');
   a.elements.addList.children[0].events.pointerup({});await a.flush();assert.deepEqual(a.writes[0],['update','handleliste/recent',{Buy:true}]);
   a.window.showAllItems();assert.equal(a.elements.addList.children.length,2);
@@ -144,7 +144,7 @@ test('edit and delete preserve separate return to add page and validate fields',
 test('authentication rejection prevents writes for create, purchase, add, edit and delete',async()=>{
   const a=await app('additemtodatabase.js');a.document.getElementById('itemName').value='Test';a.document.getElementById('itemShop').value='Test';a.deny();await a.window.submitItem();assert.equal(a.writes.length,0);
   for(const entry of ['main.js','markitemtobuy.js']) {
-    const b=await app(entry,{data:{fixture:{Name:'Test',Buy:entry==='main.js',BoughtDate:['2026-10-02']}}});await b.ready();b.deny();
+    const b=await app(entry,{data:{fixture:{Name:'Test',Buy:entry==='main.js',BoughtDate:['2026-10-02','2026-10-02']}}});await b.ready();b.deny();
     b.elements[entry==='main.js'?'itemList':'addList'].children[0].events.pointerup({});await b.flush();assert.equal(b.writes.length,0);
   }
   const c=await app('edititem.js',{search:'?id=fixture',data:{fixture:{Name:'Test',Shop:'Test'}}});await c.ready();c.deny();await c.window.saveItem();await c.window.deleteItem();assert.equal(c.writes.length,0);
@@ -161,7 +161,7 @@ test('publication contains only necessary app files and all local references res
   }
   const source=fs.readFileSync(path.join(root,'docs/js/firebase-init.js'),'utf8');assert.match(source,/ZDq6ZGvDVDafX8BVlWGRhBoSn9X2/);assert.match(source,/fmVOzYiAtsOUNnUE33VZbwHR0SG3/);
   assert.match(fs.readFileSync(path.join(root,'docs/index.html'),'utf8'),/<!-- <button onclick="logout\(\)"/);
-  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 11;/);
+  assert.match(fs.readFileSync(path.join(root,'docs/js/version.js'),'utf8'),/APP_VERSION = 12;/);
 });
 
 test('offline restart shows only shopping rows, persists marks and prevents navigation/editing',async()=>{
@@ -235,13 +235,13 @@ test('service worker precaches shell/SDK, provides offline navigation and never 
   let offline=false,fetches=0;
   const cache={addAll:async requests=>{for(const request of requests) { assert.equal(request.cache,'no-store');cached.set(request.url,{url:request.url,installed:true}); }},match:async request=>cached.get(typeof request==='string'?request:request.url)};
   const context=vm.createContext({URL,Request,console,self:{location:{href:base+'sw.js'},clients:{claim:async()=>{},matchAll:async()=>[]},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},
-    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9','handleliste-shell-v10','handleliste-shell-v11','another-app'],delete:async key=>deleted.push(key)},
+    caches:{open:async()=>cache,keys:async()=>['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9','handleliste-shell-v10','handleliste-shell-v11','handleliste-shell-v12','another-app'],delete:async key=>deleted.push(key)},
     fetch:async request=>{fetches++;if(offline) throw Error('offline');return {url:request.url,ok:true,installed:false};}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
   for(const url of cached.keys()) if(url.startsWith(base)) assert.ok(fs.existsSync(path.join(root,'docs',url.slice(base.length))),url);
   assert.ok(cached.has('https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js'));
-  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9','handleliste-shell-v10']);
+  events.activate({waitUntil:p=>task=p});await task;assert.deepEqual(deleted,['handleliste-shell-v7','handleliste-shell-v8','handleliste-shell-v9','handleliste-shell-v10','handleliste-shell-v11']);
   function fetchEvent(url,mode='cors',method='GET') { let response;events.fetch({request:{url,mode,method},respondWith:p=>response=p});return response; }
   const online=await fetchEvent(base+'index.html','navigate');assert.equal(online.installed,true);
   offline=true;
@@ -259,15 +259,15 @@ test('new service worker cannot populate its shell with v2 modules from the HTTP
   const cache={addAll:async requests=>{
     for(const request of requests) {
       // Reproduce Chrome holding the old version.js in its separate HTTP cache.
-      const source=request.cache==='no-store' ? 'APP_VERSION = 11' : 'APP_VERSION = 2';
+      const source=request.cache==='no-store' ? 'APP_VERSION = 12' : 'APP_VERSION = 2';
       stored.set(request.url,source);
     }
   }};
   const context=vm.createContext({URL,Request,self:{location:{href:base+'sw.js'},skipWaiting:async()=>{},addEventListener:(name,fn)=>events[name]=fn},caches:{open:async()=>cache}});
   vm.runInContext(fs.readFileSync(path.join(root,'docs/sw.js'),'utf8'),context);
   let task;events.install({waitUntil:p=>task=p});await task;
-  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 11');
-  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 11');
+  assert.equal(stored.get(base+'js/version.js'),'APP_VERSION = 12');
+  assert.equal(stored.get(base+'js/main.js'),'APP_VERSION = 12');
 });
 
 async function updateApp({online=true,update=async()=>{},waiting=null,failRegistration=false}={}) {
@@ -609,5 +609,32 @@ test('saved list is usable immediately while initial auth remains pending',async
     assert.ok(a.elements.itemList.children[0].classes.has('is-bought-offline'));
     assert.ok(JSON.parse(a.storage.get('handleliste.offline.v1')).pending.coffee);
     assert.equal(a.writes.length,0);
+  }
+});
+
+test('short list requires two purchases within 60 Oslo calendar days',async()=>{
+  for(const now of ['2026-10-01T22:30:00Z','2026-04-01T00:00:00Z']) {
+    const {module}=await app('dates.js');
+    const today=module.namespace.getOsloDate(new Date(now));
+    const day=new Date(today+'T00:00:00Z').getTime();
+    const cutoff=new Date(day-60*86400000).toISOString().slice(0,10);
+    const old=new Date(day-61*86400000).toISOString().slice(0,10);
+    const histories={
+      twice:[cutoff,today],sameDay:[today,today],once:[today],
+      oneOld:[old,today],old:[old,old],missing:undefined,
+      invalid:['bad','2026-02-30',today],empty:[]
+    };
+    const data=Object.fromEntries(Object.entries(histories).map(([Name,BoughtDate])=>
+      [Name,{Name,Buy:false,BuyNumber:100,BoughtDate}]));
+    data.active={Name:'active',Buy:true,BoughtDate:[today,today]};
+    const a=await app('markitemtobuy.js',{now,data});await a.ready();
+    const names=()=>a.elements.addList.children.map(row=>row.children[0].textContent).sort();
+    assert.deepEqual(names(),['sameDay','twice']);
+    a.records.once.BoughtDate.push(today);a.emit();
+    assert.deepEqual(names(),['once','sameDay','twice']);
+    a.elements.itemSearch.value='oneOld';a.elements.itemSearch.events.input();
+    assert.deepEqual(names(),['oneOld']);
+    a.elements.itemSearch.value='';a.elements.itemSearch.events.input();
+    assert.equal(names().length,8);
   }
 });

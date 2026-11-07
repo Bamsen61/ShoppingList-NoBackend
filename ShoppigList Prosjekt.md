@@ -1,6 +1,6 @@
 # ShoppingList – prosjektbeskrivelse og driftsgrunnlag
 
-Dokumentversjon: 15
+Dokumentversjon: 16
 
 Sist kontrollert mot lokal kode: 2026-11-07
 
@@ -34,7 +34,7 @@ Dokumentet beskriver eksisterende kode, lokale konfigurasjonsfiler og vedtatte k
 * Målplattform: Android Chrome. Responsiv layout finnes; øvrig nettleserkompatibilitet er ikke bekreftet.
 * Ingen egen backend kjøres i repoet. Firebase Authentication og Realtime Database brukes direkte fra nettleseren.
 * PWA, service worker og lokal offline-handleliste er implementert. Android-installasjon og ekte auth/realtime gjenstår som manuell kontroll etter publisering.
-* Appversjon **11** er definert sentralt i `docs/js/version.js` og vises som `v11` på forsiden.
+* Appversjon **12** er definert sentralt i `docs/js/version.js` og vises som `v12` på forsiden.
 
 ## Formål
 
@@ -45,8 +45,8 @@ ShoppingList-NoBackend er en felles handleliste for to autoriserte brukere. Vare
 * **Handleliste:** `index.html` viser varer med `Buy === true`, sortert etter butikk og deretter varenavn. Vare og butikk vises på samme rad.
 * **Registrere kjøp:** Kort trykk setter `Buy` til `false`, registrerer valgt person i `BoughtBy`, legger inn kjøpsdato og øker `BuyNumber` med 1. Varen forsvinner fra handlelisten, men beholdes i databasen.
 * **Legg til eksisterende vare:** `markitemtobuy.html` viser varer med `Buy === false`, sortert etter varenavn. Kort trykk setter `Buy` til `true`.
-* **Siste kjøp:** "Legg til" viser først varer med en gyldig kjøpsdato fra de siste 50 dagene. Grensen styres av `RECENTLY_BOUGHT_DAYS_LIMIT` i `docs/js/markitemtobuy.js`.
-* **Vis alle og søk:** "Vis alle" viser alle varer som ikke står på handlelisten. Søk matcher deler av varenavnet uten å skille mellom store og små bokstaver. Endring i søkefeltet fjerner 50-dagersfilteret for resten av sideøkten.
+* **Siste kjøp:** "Legg til" viser først varer med minst to gyldige registrerte kjøpsdatoer fra de siste 60 kalenderdagene. Flere kjøp samme dag teller hver for seg. Grensene styres av `RECENTLY_BOUGHT_DAYS_LIMIT` og `RECENTLY_BOUGHT_MINIMUM_PURCHASES` i `docs/js/markitemtobuy.js`.
+* **Vis alle og søk:** "Vis alle" viser alle varer som ikke står på handlelisten. Søk matcher deler av varenavnet uten å skille mellom store og små bokstaver. Endring i søkefeltet fjerner kortlistefilteret for resten av sideøkten.
 * **Bokstavnavigasjon:** Sidefelt med `0`, `A–Z`, `Æ`, `Ø` og `Å`. Trykk tømmer søket, viser alle tilgjengelige varer og ruller til valgt bokstav, eventuelt neste bokstav med varer eller en foregående dersom ingen senere finnes. `0` samler navn med andre starttegn.
 * **Ny vare:** `additemtodatabase.html` oppretter en vare med navn og butikk. Begge felt må fylles ut. Nye varer legges direkte på handlelisten.
 * **Redigere og slette:** Langt trykk (700 ms) åpner `edititem.html`. Navn og butikk kan endres. "Slett Vare" krever bekreftelse og fjerner hele varen, inkludert historikken.
@@ -141,7 +141,7 @@ Eksempel på format, ikke en kontrollert produksjonsrecord:
 }
 ```
 
-Nye kjøp bruker norsk lokal dato (`Europe/Oslo`) fra `docs/js/dates.js`. 50-dagersfilteret bruker samme Oslo-dato og kalenderdager, med grensedagen inkludert uavhengig av sommertid og klientens tidssone. Ugyldige datoer ignoreres; eksisterende gyldige fremtidige datoer inkluderes som før. Formatet er `YYYY-MM-DD`; eksisterende kjøpshistorikk er ikke omskrevet.
+Nye kjøp bruker norsk lokal dato (`Europe/Oslo`) fra `docs/js/dates.js`. Kortlistefilteret bruker samme Oslo-dato og kalenderdager, med grensedagen inkludert uavhengig av sommertid og klientens tidssone. Ugyldige datoer ignoreres; eksisterende gyldige fremtidige datoer inkluderes som før. Formatet er `YYYY-MM-DD`; eksisterende kjøpshistorikk er ikke omskrevet.
 
 Kjøpsregistrering bruker `get()` etterfulgt av `update()`, uten transaction. Samtidige kjøp av samme vare kan overskrive teller eller historikk. Brukeren har akseptert dette; innføring av transaction er ikke planlagt.
 
@@ -188,7 +188,7 @@ Automatiserte tester bruker kun isolerte fixtures.
 | `docs/js/firebase-init.js` | Firebase-konfigurasjon, SDK, UID-allowlist, persistence og auth-funksjoner. |
 | `docs/js/common.js` | Lokal lagring, skriftstørrelse, sortering, langt trykk og navigasjon. |
 | `docs/js/dates.js` | Oslo-dato, datovalidering og kalenderbasert filter. |
-| `docs/js/version.js` | Sentralt appversjonsnummer, nå 11. |
+| `docs/js/version.js` | Sentralt appversjonsnummer, nå 12. |
 | `tests/app.test.cjs` | Automatiserte tester med isolert Firebase-/DOM-mock. |
 | `tools/README.md` | Upubliserte hjelpefiler og oppdaterte lokale lenker. |
 | `docs/js/main.js` | Realtime hovedliste, forbindelsesstatus og synkronisering av kjøp. |
@@ -197,7 +197,7 @@ Automatiserte tester bruker kun isolerte fixtures.
 | `docs/sw.js` | Versjonert ressurscache; ingen caching av databasesvar. |
 | `docs/manifest.webmanifest` | Handleliste, standalone og relative GitHub Pages-stier. |
 | `docs/icons/` | Genererte PNG-appikoner på 192 og 512 px. |
-| `docs/js/markitemtobuy.js` | Realtime tilgjengelige varer, 50-dagersfilter, søk og bokstavnavigasjon. |
+| `docs/js/markitemtobuy.js` | Realtime tilgjengelige varer, 60-dagersfilter med minst to kjøp, søk og bokstavnavigasjon. |
 | `docs/js/additemtodatabase.js` | Opprettelse med Firebase `push()`. |
 | `docs/js/edititem.js` | Lasting, oppdatering og sletting av enkeltvare. |
 | `docs/css/style.css` | Felles styling og responsiv layout for varesidene. |
@@ -245,7 +245,7 @@ Ved fremtidige kodeendringer velges relevante kontroller:
 2. Opprettelse, legge til eksisterende vare og kjøp med korrekt teller og historikk.
 3. Realtime mellom to klienter.
 4. Redigering og sletting av en særskilt testvare.
-5. 50-dagersfilter, "Vis alle", søk og bokstavrekkefølgen `Æ`, `Ø`, `Å`.
+5. 60-dagersfilter med minst to kjøp, "Vis alle", søk og bokstavrekkefølgen `Æ`, `Ø`, `Å`.
 6. Personvalg, skriftstørrelse, langt trykk og Back-navigasjon på Android Chrome.
 
 Dette er en referanseliste. Be brukeren om én konkret test av gangen og vent på svar. `npm test` og `npm run check` finnes ikke i repoet.
@@ -260,7 +260,7 @@ node --experimental-vm-modules --test tests/*.test.cjs
 
 tests/app.test.cjs kjører appmodulene med isolerte fixtures, DOM-mock og in-memory Firebase-mock. Eksterne modulimporter avvises; nettverks-API-er og produksjonskontoer er ikke tilgjengelige. Ingen writes til produksjon forekommer.
 
-Testene dekker standardperson, Oslo-midnatt/sommertid, inklusive 50-dagersfilter, norsk sortering, navigasjon, vareoperasjoner, avviste writes ved auth-feil, søk/bokstavnavigasjon og nødvendige publiseringsfiler. TESTING.md beskriver kommando og begrensninger. Mocks bekrefter ikke aktive regler, ekte auth/realtime eller Androids Back-knapp. Bruk lokal emulator hvis integrasjonstester blir nødvendige.
+Testene dekker standardperson, Oslo-midnatt/sommertid, inklusive 60-dagersfilter med minst to kjøp, norsk sortering, navigasjon, vareoperasjoner, avviste writes ved auth-feil, søk/bokstavnavigasjon og nødvendige publiseringsfiler. TESTING.md beskriver kommando og begrensninger. Mocks bekrefter ikke aktive regler, ekte auth/realtime eller Androids Back-knapp. Bruk lokal emulator hvis integrasjonstester blir nødvendige.
 
 
 ## Publisering og tilbakeføring
@@ -288,6 +288,8 @@ Etter applikasjonsendringer kontrolleres workflow-resultat og aktuell produksjon
 Ved tilbakeføring reverseres den konkrete feilaktige committen med `git revert`, etter kontroll av lokale endringer. En eldre nettstedversjon reverserer ikke databaseendringer eller Firebase-regler. Før senere endringer i regler eller datamodell sikres gjeldende regler og nødvendige data separat.
 
 ## Endringslogg for prosjektfilen
+
+* **2026-11-07 – dokumentversjon 16, appversjon 12:** Kortlista under "Legg til" viser varer kjøpt minst to ganger siste 60 kalenderdager, med grensedagen inkludert. Flere kjøp samme dag teller hver for seg. Søk, "Vis alle" og bokstavnavigasjon beholdes. Appversjon, service worker-cache og isolerte tester er oppdatert. Alle 48 isolerte tester passerer, og git diff --check er uten feil. Ingen publisering utført.
 
 * **2026-11-07 – dokumentversjon 15, appversjon 11:** Rettet nettverksventing før cached HTML ble levert ved oppstart. Appsider og oppstartsressurser leveres direkte fra cache; rotadresse og query-parametere er dekket. Regresjonstest feiler mot gammel kode ved hengende nettverk. Separat test bekrefter umiddelbar visning og lokal kjøpsmarkering mens auth venter. 47 isolerte tester passerer, og git diff --check er uten feil. Android-kontroll gjenstår; ingen publisering utført.
 

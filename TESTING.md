@@ -1,4 +1,4 @@
-# Testing – appversjon 11
+# Testing – appversjon 12
 
 ## Automatiserte tester
 
@@ -12,7 +12,7 @@ Krever Node.js 22 eller nyere. Bruker innebygd node:test og vm.SourceTextModule;
 
 tests/app.test.cjs kjører de faktiske appmodulene i isolerte VM-kontekster med Firebase erstattet av en in-memory mock. Modul-loaderen avviser nettverksimporter; fetch, XMLHttpRequest og produksjonskontoer er ikke tilgjengelige. Hver test får egne fixtures. Ingen test skriver til produksjonsdatabasen.
 
-Dekker standardperson og valgt person, Oslo-dato rundt midnatt og sommertid, inklusive 50 kalenderdager, ugyldige datoer, norsk sortering, direkte retur til forsiden, opprettelse, kjøp/teller/historikk, tillegg, redigering/sletting og avviste writes ved manglende auth. Søk, Vis alle og bokstavnavigasjon kontrolleres med DOM-mock. Publiseringskontrollen tillater bare nødvendige appfiler og kontrollerer lokale ressursreferanser samt appversjon 11.
+Dekker standardperson og valgt person, Oslo-dato rundt midnatt og sommertid, inklusive 60 kalenderdager og minst to kjøp (også samme dag), ugyldige datoer, norsk sortering, direkte retur til forsiden, opprettelse, kjøp/teller/historikk, tillegg, redigering/sletting og avviste writes ved manglende auth. Søk, Vis alle og bokstavnavigasjon kontrolleres med DOM-mock. Publiseringskontrollen tillater bare nødvendige appfiler og kontrollerer lokale ressursreferanser samt appversjon 12.
 
 Mocken bekrefter ikke ekte innlogging, aktive Firebase-regler, nettverksbasert realtime eller rendering i Android Chrome. Bruk lokal Firebase-emulator hvis automatisert auth-/regelintegrasjon blir nødvendig.
 
@@ -20,7 +20,7 @@ Mocken bekrefter ikke ekte innlogging, aktive Firebase-regler, nettverksbasert r
 
 Gi brukeren én test om gangen og vent på svaret. Etter tilgjengeliggjøring av oppdatert app: åpne Legg til → Ny vare → Avbryt på Android Chrome og kontroller at forsiden vises; kontroller deretter Androids Back-knapp. Dette krever enheten og kan ikke bekreftes av DOM-mocken.
 
-Ved relevant auth/realtime-endring kontrolleres autorisert innlogging og oppdatering mellom to ekte klienter separat. Appversjon 11 endrer lasting av appsider fra cache; Firebase-regler og kontoer er uendret. Lokal server bruker ekte Firebase; ikke bruk vareoperasjoner mot produksjon som automatiserte tester.
+Ved relevant auth/realtime-endring kontrolleres autorisert innlogging og oppdatering mellom to ekte klienter separat. Appversjon 12 endrer kortlista til minst to kjøp siste 60 dager; Firebase-regler og kontoer er uendret. Lokal server bruker ekte Firebase; ikke bruk vareoperasjoner mot produksjon som automatiserte tester.
 
 Person og fontSize er de lokale innstillingene. Det finnes ingen global shop-innstilling. Logout er skjult; appversjon vises høyrejustert i eksisterende topplinje, med samme font som personvalget og uten ekstra høyde. PWA-installasjon og ekte offline-oppstart må kontrolleres på Android Chrome etter publisering.
 
@@ -28,7 +28,7 @@ Person og fontSize er de lokale innstillingene. Det finnes ingen global shop-inn
 
 Automatiserte tester dekker minimal lokal datacache, offline-oppstart fra lagring, kjøpsmarkering, vedvarende kjøp over reload, gjenopprettet forbindelse, opprinnelig kjøpsperson/dato, teller/historikk, feil og retry, slettede/allerede kjøpte varer, manifestets GitHub Pages-stier og PNG-størrelser. Service worker testes med isolert Cache/fetch-mock.
 
-Etter publisering er første manuelle test: installer Handleliste fra Android Chrome og kontroller at den åpner i eget appvindu med v11. Vent på svar før neste test. Deretter kontrolleres offline-oppstart og synkronisering med en særskilt testvare, og ekte login/realtime/navigasjon separat. Disse kontrollene er ikke gjennomført automatisk.
+Etter publisering er første manuelle test: installer Handleliste fra Android Chrome og kontroller at den åpner i eget appvindu med v12. Vent på svar før neste test. Deretter kontrolleres offline-oppstart og synkronisering med en særskilt testvare, og ekte login/realtime/navigasjon separat. Disse kontrollene er ikke gjennomført automatisk.
 
 Regresjonstester dekker gammel v2-JavaScript i HTTP-cache ved precache av ny appversjon, opprydding av gammel service worker-cache og automatisk aktivering etter fullstendig precache, oppdateringssjekk ved oppstart/fokus/foreground og automatisk navigasjon av åpne appvinduer (inkludert gamle klienter). Andre apper på origin skal ikke navigeres. Offline/feil skal beholde gjeldende app, og mislykket precache skal ikke aktivere en ufullstendig app.
 
@@ -47,3 +47,5 @@ Appversjon 10: regresjonstestene kjører også den faktiske firebase-init.js med
 Appversjon 11: en isolert regresjonstest gjenskaper heng ved oppstart med et nettverkskall som aldri svarer. Testen kontrollerer at rotadresse, index.html, query-parametere, redigeringssiden og cachede oppstartsressurser leveres uten nettverkskall. En separat test bekrefter at lagrede varer kan vises og kjøpsmarkeres før auth svarer, både med og uten rapportert nett.
 
 Neste manuelle kontroll for v11 etter publisering, én test: last inn v11 med nett, lukk appen, slå på flymodus og åpne appen på nytt. Kontroller at handlelisten vises straks og at en vare kan kjøpsmarkeres. Denne Android-kontrollen gjenstår.
+
+Appversjon 12: isolerte tester dekker minst to kjøp siste 60 Oslo-kalenderdager, inklusive grensedagen, sommertid, flere kjøp samme dag, ett kjøp, gammel/ugyldig/manglende historikk, Realtime og at søk og Vis alle viser varer utenfor kortlista. BuyNumber brukes ikke til tidsavgrenset telling.
